@@ -23,6 +23,8 @@ type Order = {
 
   customer_order_count?: number;
   customer_type?: "new" | "existing" | "unknown";
+  device_id?: string;
+  device_info?: string;
 };
 
 type MenuOptionLine = {
@@ -498,7 +500,28 @@ export default function AdminPage() {
     );
   };
 
-  const getStatusColor = (status: string) => {
+  
+  const getFraudInfo = (order: Order) => {
+    const sameDeviceOrders = orders.filter(
+      (o) => o.device_id && o.device_id === order.device_id
+    );
+
+    const differentPhones = new Set(
+      sameDeviceOrders.map((o) =>
+        cleanPhone(o.phone)
+      )
+    );
+
+    return {
+      sameDevice: sameDeviceOrders.length >= 3,
+      phoneChanged: differentPhones.size >= 2,
+      suspicious:
+        sameDeviceOrders.length >= 3 &&
+        differentPhones.size >= 2,
+    };
+  };
+
+const getStatusColor = (status: string) => {
     if (status === "접수대기") return "bg-red-600 text-white";
     if (status === "접수완료") return "bg-orange-500 text-white";
     if (status === "조리중") return "bg-blue-600 text-white";
@@ -1002,6 +1025,31 @@ export default function AdminPage() {
 
                   <div className="text-zinc-300">📞 {order.phone}</div>
                   <div className="text-zinc-300">📍 {order.address}</div>
+
+                  {(() => {
+                    const fraud = getFraudInfo(order);
+                    return (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {fraud.sameDevice && (
+                          <div className="rounded-xl bg-orange-600 px-3 py-2 text-sm font-black">
+                            ⚠ 같은 기기 반복
+                          </div>
+                        )}
+
+                        {fraud.phoneChanged && (
+                          <div className="rounded-xl bg-red-500 px-3 py-2 text-sm font-black">
+                            ⚠ 번호만 변경
+                          </div>
+                        )}
+
+                        {fraud.suspicious && (
+                          <div className="rounded-xl bg-red-700 px-3 py-2 text-sm font-black animate-pulse">
+                            🚨 의심 주문
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <div
