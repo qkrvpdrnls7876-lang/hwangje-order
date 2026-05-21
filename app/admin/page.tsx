@@ -814,37 +814,41 @@ const showBrowserNotification = (order: Order) => {
           </div>
         
 
-          <div className="mt-6 grid grid-cols-4 gap-4">
-            <button
-              onClick={enableSound}
-              className={`min-h-[78px] rounded-2xl px-4 text-2xl font-black ${
-                soundEnabled ? "bg-green-600" : "bg-yellow-400 text-black"
-              }`}
-            >
-              {soundEnabled ? "🔊 켜짐" : "🔊 알림켜기"}
-            </button>
+         <div className="mt-4 flex flex-wrap items-center gap-2">
 
-            <button
-              onClick={requestNotification}
-              className="min-h-[78px] rounded-2xl bg-purple-600 px-4 text-2xl font-black"
-            >
-              🔔 푸시켜기
-            </button>
+  <button
+    onClick={enableSound}
+    className={`rounded-xl px-3 py-2 text-sm font-black transition ${
+      soundEnabled
+        ? "bg-green-600 text-white"
+        : "bg-yellow-400 text-black"
+    }`}
+  >
+    {soundEnabled ? "🔊 ON" : "🔊 알림"}
+  </button>
 
-            <button
-              onClick={playAlarm}
-              className="min-h-[78px] rounded-2xl bg-zinc-700 px-4 text-2xl font-black"
-            >
-              테스트
-            </button>
+  <button
+    onClick={requestNotification}
+    className="rounded-xl bg-purple-600 px-3 py-2 text-sm font-black"
+  >
+    🔔 푸시
+  </button>
 
-            <button
-              onClick={stopAlarm}
-              className="min-h-[78px] rounded-2xl bg-red-600 px-4 text-2xl font-black"
-            >
-              끄기
-            </button>
-          </div>
+  <button
+    onClick={playAlarm}
+    className="rounded-xl bg-zinc-700 px-3 py-2 text-sm font-black"
+  >
+    테스트
+  </button>
+
+  <button
+    onClick={stopAlarm}
+    className="rounded-xl bg-red-600 px-3 py-2 text-sm font-black"
+  >
+    OFF
+  </button>
+
+</div>
         </div>
 
         <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-6">
