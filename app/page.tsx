@@ -124,6 +124,7 @@ const [links, setLinks] = useState<GroupMenuLink[]>([]);
     "주소를 입력하면 배달비가 자동 계산됩니다.",
   );
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [submittingOrder, setSubmittingOrder] = useState(false);
   const [showAddressSearch, setShowAddressSearch] = useState(false);
   const [addressKeyword, setAddressKeyword] = useState("");
   const [addressResults, setAddressResults] = useState<any[]>([]);
@@ -1016,98 +1017,140 @@ return groups.filter(
   };
 
   const submitOrder = async () => {
-    if (cart.length === 0) return alert("메뉴를 담아주세요");
+    if (submittingOrder) return;
 
-    if (menuTotal < 11000) {
-      return alert(
-        `최소 주문금액은 11,000원입니다.\n현재 메뉴금액 ${menuTotal.toLocaleString()}원`,
+    setSubmittingOrder(true);
+
+    try {
+      if (cart.length === 0) {
+        alert("메뉴를 담아주세요");
+        return;
+      }
+
+      if (menuTotal < 11000) {
+        alert(
+          `최소 주문금액은 11,000원입니다.\n현재 메뉴금액 ${menuTotal.toLocaleString()}원`,
+        );
+        return;
+      }
+
+      const finalAddress = selectedBaseAddress
+        ? `${selectedBaseAddress} ${detailAddress}`.trim()
+        : `${form.address} ${detailAddress}`.trim();
+
+      if (!form.phone || !finalAddress) {
+        alert("전화번호와 주소를 입력해주세요");
+        return;
+      }
+
+      if (!isValidKoreanPhone(form.phone)) {
+        alert("휴대폰번호는 010으로 시작하는 11자리 번호로 입력해주세요.");
+        return;
+      }
+
+      if (deliveryDistance > MAX_DELIVERY_DISTANCE_KM) {
+        alert(
+          `배달 가능 거리는 최대 8km입니다.\n현재 거리: ${deliveryDistance.toFixed(1)}km`,
+        );
+        return;
+      }
+
+      if (
+        deliveryStatus.includes("주소를 찾지 못했습니다") ||
+        deliveryStatus.includes("초과")
+      ) {
+        alert("배달 가능한 주소인지 다시 확인해주세요.");
+        return;
+      }
+
+      if (!paymentMethod) {
+        alert("결제수단을 선택해주세요.");
+        return;
+      }
+
+      const phone = normalizePhone(form.phone);
+
+      const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
+
+      const { data: duplicateOrder, error: duplicateError } = await supabase
+        .from("orders")
+        .select("id")
+        .eq("phone", phone)
+        .gte("created_at", oneMinuteAgo)
+        .in("status", ["접수대기", "접수완료"])
+        .limit(1);
+
+      if (duplicateError) {
+        alert("중복 주문 확인 실패: " + duplicateError.message);
+        return;
+      }
+
+      if (duplicateOrder && duplicateOrder.length > 0) {
+        alert(
+          "같은 번호로 최근 주문이 접수되었습니다.\n잠시 후 다시 시도해주세요.",
+        );
+        return;
+      }
+
+      const menuText = JSON.stringify(
+        cart.map((item) => ({
+          name: item.name,
+          qty: item.qty,
+          basePrice: item.basePrice,
+          options: item.options,
+          total: item.total,
+        })),
       );
-    }
 
-    const finalAddress = selectedBaseAddress
-      ? `${selectedBaseAddress} ${detailAddress}`.trim()
-      : `${form.address} ${detailAddress}`.trim();
+      const paymentMemo =
+        paymentMethod === "계좌이체"
+          ? `${paymentMethod} / ${bankInfo}`
+          : paymentMethod;
 
-    if (!form.phone || !finalAddress) {
-      return alert("전화번호와 주소를 입력해주세요");
-    }
+      const finalMemo = [selectedRequest, form.memo, paymentMemo]
+        .filter(Boolean)
+        .join(" / ");
 
-    if (!isValidKoreanPhone(form.phone)) {
-      return alert("휴대폰번호는 010으로 시작하는 11자리 번호로 입력해주세요.");
-    }
+      const { data, error } = await supabase
+        .from("orders")
+        .insert({
+          customer: form.name || "고객",
+          phone,
+          address: finalAddress,
+          menu: menuText,
+          total: finalTotal,
+          status: "접수대기",
+          memo: finalMemo,
+          payment_method: paymentMethod,
+          delivery_fee: deliveryFee,
+          delivery_distance_km: Number(deliveryDistance.toFixed(2)),
+          stamp_discount: finalStampDiscount,
+          used_stamp_reward: useStampReward,
+          stamp_processed: false,
+        })
+        .select("id")
+        .single();
 
-    if (deliveryDistance > MAX_DELIVERY_DISTANCE_KM) {
-      return alert(
-        `배달 가능 거리는 최대 8km입니다.\n현재 거리: ${deliveryDistance.toFixed(1)}km`,
-      );
-    }
+      if (error) {
+        alert("주문 저장 실패: " + error.message);
+        return;
+      }
 
-    if (deliveryStatus.includes("주소를 찾지 못했습니다") || deliveryStatus.includes("초과")) {
-      return alert("배달 가능한 주소인지 다시 확인해주세요.");
-    }
+      if (!data?.id) {
+        alert("주문번호 생성 실패");
+        return;
+      }
 
-    if (!paymentMethod) {
-      return alert("결제수단을 선택해주세요.");
-    }
-
-    const phone = normalizePhone(form.phone);
-
-    const menuText = JSON.stringify(
-      cart.map((item) => ({
-        name: item.name,
-        qty: item.qty,
-        basePrice: item.basePrice,
-        options: item.options,
-        total: item.total,
-      })),
-    );
-
-    const paymentMemo =
-      paymentMethod === "계좌이체"
-        ? `${paymentMethod} / ${bankInfo}`
-        : paymentMethod;
-
-    const finalMemo = [selectedRequest, form.memo, paymentMemo]
-      .filter(Boolean)
-      .join(" / ");
-
-    const { data, error } = await supabase
-      .from("orders")
-      .insert({
-        customer: form.name || "고객",
-        phone,
+      saveCustomerInfo({
+        phone: formatPhone(form.phone),
         address: finalAddress,
-        menu: menuText,
-        total: finalTotal,
-        status: "접수대기",
-        memo: finalMemo,
-        payment_method: paymentMethod,
-        delivery_fee: deliveryFee,
-        delivery_distance_km: Number(deliveryDistance.toFixed(2)),
-        stamp_discount: finalStampDiscount,
-        used_stamp_reward: useStampReward,
-        stamp_processed: false,
-      })
-      .select("id")
-      .single();
+        detailAddress,
+      });
 
-    if (error) {
-      alert("주문 저장 실패: " + error.message);
-      return;
+      router.push(`/order/${data.id}`);
+    } finally {
+      setSubmittingOrder(false);
     }
-
-    if (!data?.id) {
-      alert("주문번호 생성 실패");
-      return;
-    }
-
-    saveCustomerInfo({
-      phone: formatPhone(form.phone),
-      address: finalAddress,
-      detailAddress,
-    });
-
-    router.push(`/order/${data.id}`);
   };
 
   return (
@@ -1731,16 +1774,22 @@ return groups.filter(
 
                   <button
                     onClick={submitOrder}
-                    disabled={deliveryDistance > MAX_DELIVERY_DISTANCE_KM}
+                    disabled={
+                      deliveryDistance > MAX_DELIVERY_DISTANCE_KM ||
+                      submittingOrder
+                    }
                     className={`w-full rounded-lg p-3 text-sm font-black shadow-lg ${
-                      deliveryDistance > MAX_DELIVERY_DISTANCE_KM
+                      deliveryDistance > MAX_DELIVERY_DISTANCE_KM ||
+                      submittingOrder
                         ? "bg-zinc-800 text-zinc-500 shadow-none"
                         : "bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] text-black shadow-[#d4af37]/20"
                     }`}
                   >
-                    {deliveryDistance > MAX_DELIVERY_DISTANCE_KM
-                      ? "배달 가능 거리 초과"
-                      : "주문 접수하기"}
+                    {submittingOrder
+                      ? "주문 처리중..."
+                      : deliveryDistance > MAX_DELIVERY_DISTANCE_KM
+                        ? "배달 가능 거리 초과"
+                        : "주문 접수하기"}
                   </button>
                 </div>
               )}
