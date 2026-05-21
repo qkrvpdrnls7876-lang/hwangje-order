@@ -1070,6 +1070,46 @@ return groups.filter(
 
       const phone = normalizePhone(form.phone);
 
+      const { data: customerData, error: customerError } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("phone", phone)
+        .maybeSingle();
+
+      if (customerError) {
+        alert("고객 정보 확인 실패: " + customerError.message);
+        return;
+      }
+
+      if (!customerData) {
+        const { error: insertCustomerError } = await supabase
+          .from("customers")
+          .insert({
+            phone,
+            name: form.name || "고객",
+            order_count: 1,
+          });
+
+        if (insertCustomerError) {
+          alert("신규 고객 등록 실패: " + insertCustomerError.message);
+          return;
+        }
+      } else {
+        const { error: updateCustomerError } = await supabase
+          .from("customers")
+          .update({
+            name: form.name || customerData.name || "고객",
+            order_count: Number(customerData.order_count || 0) + 1,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("phone", phone);
+
+        if (updateCustomerError) {
+          alert("기존 고객 주문횟수 업데이트 실패: " + updateCustomerError.message);
+          return;
+        }
+      }
+
       const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
 
       const { data: duplicateOrder, error: duplicateError } = await supabase
