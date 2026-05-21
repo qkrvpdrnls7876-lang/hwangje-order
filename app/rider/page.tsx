@@ -81,7 +81,10 @@ export default function RiderPage() {
 
     const allTodayOrders = todayData || [];
     const deliveryOrders = allTodayOrders.filter(
-      (order) => order.status === "배달중",
+      (order) =>
+        order.status === "접수완료" ||
+        order.status === "조리중" ||
+        order.status === "배달중"
     );
 
     setTodayOrders(allTodayOrders);
@@ -288,7 +291,7 @@ export default function RiderPage() {
               </h1>
 
               <div className="mt-1 text-xs font-bold text-zinc-400">
-                배달중 {orders.length}건 · 3초 자동갱신
+                접수/조리/배달 {orders.length}건 · 3초 자동갱신
               </div>
             </div>
 
