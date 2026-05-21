@@ -18,7 +18,35 @@ function unauthorized() {
 }
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, hostname } = request.nextUrl;
+
+  if (pathname === "/manifest.json") {
+    const url = request.nextUrl.clone();
+
+    if (hostname.startsWith("admin.")) {
+      url.pathname = "/admin-manifest.json";
+      return NextResponse.rewrite(url);
+    }
+
+    if (hostname.startsWith("rider.")) {
+      url.pathname = "/rider-manifest.json";
+      return NextResponse.rewrite(url);
+    }
+
+    return NextResponse.next();
+  }
+
+  if (hostname.startsWith("admin.") && pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin";
+    return NextResponse.redirect(url);
+  }
+
+  if (hostname.startsWith("rider.") && pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/rider";
+    return NextResponse.redirect(url);
+  }
 
   if (!isLockedPath(pathname)) {
     return NextResponse.next();
@@ -57,5 +85,11 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/rider/:path*", "/kitchen/:path*"],
+  matcher: [
+    "/manifest.json",
+    "/admin/:path*",
+    "/rider/:path*",
+    "/kitchen/:path*",
+    "/",
+  ],
 };
