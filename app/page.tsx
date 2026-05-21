@@ -1,0 +1,1775 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+
+declare global {
+  interface Window {
+    kakao: any;
+  }
+}
+
+type Menu = {
+  id: number;
+  name: string;
+  price: number;
+  description: string | null;
+  category: string | null;
+  is_soldout: boolean;
+};
+
+type OptionGroup = {
+  id: number;
+  menu_id: number;
+  name: string;
+  type: string;
+  required: boolean;
+};
+
+type OptionItem = {
+  id: number;
+  group_id: number;
+  name: string;
+  price: number;
+  is_soldout: boolean;
+};
+
+type GroupMenuLink = {
+  id:number;
+  menu_id:number;
+  group_id:number;
+};
+
+type SelectedOption = {
+  groupName: string;
+  optionName: string;
+  price: number;
+};
+
+type CartItem = {
+  cartId: string;
+  menuId: number;
+  name: string;
+  basePrice: number;
+  qty: number;
+  options: SelectedOption[];
+  total: number;
+};
+
+type StampCustomer = {
+  phone: string;
+  stamp_count: number;
+  total_orders: number;
+};
+
+type RecentOrder = {
+  id: number;
+  created_at: string;
+  address: string;
+  menu: string;
+  total: number;
+  memo: string | null;
+  payment_method: string | null;
+  delivery_fee: number | null;
+  delivery_distance_km: number | null;
+  status: string;
+};
+
+export default function Home() {
+  const router = useRouter();
+
+  const cartRef = useRef<HTMLDivElement | null>(null);
+  const orderFormRef = useRef<HTMLDivElement | null>(null);
+  const categoryRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  const bankInfo = "전북은행 000-0000-0000 박여진";
+  const STORE_ADDRESS = "전북 전주시 완산구 효자천변2길 12-6 105호";
+
+  const [menus, setMenus] = useState<Menu[]>([]);
+  const [groups, setGroups] = useState<OptionGroup[]>([]);
+  const [items, setItems] = useState<OptionItem[]>([]);
+const [links, setLinks] = useState<GroupMenuLink[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [selectedMenu, setSelectedMenu] = useState<Menu | null>(null);
+  const [selectedOptions, setSelectedOptions] = useState<
+    Record<number, OptionItem[]>
+  >({});
+  const [showOrderForm, setShowOrderForm] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState("");
+  const [showDeliveryRequests, setShowDeliveryRequests] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [showPaymentMethods, setShowPaymentMethods] = useState(false);
+  const [stampCustomer, setStampCustomer] = useState<StampCustomer | null>(
+    null,
+  );
+  const [useStampReward, setUseStampReward] = useState(false);
+  const [showOrderLookup, setShowOrderLookup] = useState(false);
+  const [orderLookupPhone, setOrderLookupPhone] = useState("");
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
+  const [recentOrdersLoading, setRecentOrdersLoading] = useState(false);
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [deliveryDistance, setDeliveryDistance] = useState(0);
+  const [kakaoReady, setKakaoReady] = useState(false);
+  const [deliveryStatus, setDeliveryStatus] = useState(
+    "주소를 입력하면 배달비가 자동 계산됩니다.",
+  );
+  const [gettingLocation, setGettingLocation] = useState(false);
+  const [showAddressSearch, setShowAddressSearch] = useState(false);
+  const [addressKeyword, setAddressKeyword] = useState("");
+  const [addressResults, setAddressResults] = useState<any[]>([]);
+  const [selectedBaseAddress, setSelectedBaseAddress] = useState("");
+  const [detailAddress, setDetailAddress] = useState("");
+
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    address: "",
+    memo: "",
+  });
+
+  const deliveryRequests = [
+    "문 앞에 두고 문자 주세요",
+    "문 앞에 두고 벨 눌러주세요",
+    "문 앞에 두고 노크해주세요",
+    "문 앞에만 두고 가주세요",
+    "직접 받을게요",
+  ];
+
+  const paymentMethods = ["만나서 현금결제", "만나서 카드결제", "계좌이체"];
+
+  const fetchAll = async () => {
+    const menusResult = await supabase
+      .from("menus")
+      .select("*")
+      .order("id", { ascending: true });
+    const groupsResult = await supabase
+      .from("menu_option_groups")
+      .select("*")
+      .order("id", { ascending: true });
+    const itemsResult = await supabase
+      .from("menu_option_items")
+      .select("*")
+      .order("id", { ascending: true });
+
+    const linksResult = await supabase
+      .from("menu_option_group_menus")
+      .select("*")
+      .order("id",{ascending:true});
+
+    if (menusResult.error)
+      return alert("메뉴 불러오기 실패: " + menusResult.error.message);
+    if (groupsResult.error)
+      return alert("옵션그룹 불러오기 실패: " + groupsResult.error.message);
+    if (itemsResult.error)
+      return alert("옵션항목 불러오기 실패: " + itemsResult.error.message);
+
+if (linksResult.error)
+      return alert("연결 불러오기 실패: " + linksResult.error.message);
+
+    setMenus(menusResult.data || []);
+    setGroups(groupsResult.data || []);
+    setItems(itemsResult.data || []);
+    setLinks(linksResult.data || []);
+  };
+
+  useEffect(() => {
+    fetchAll();
+  }, []);
+
+  useEffect(() => {
+    loadKakaoMap();
+  }, []);
+
+  const normalizePhone = (phone: string) => phone.replace(/[^0-9]/g, "");
+  const loadKakaoMap = () => {
+    return new Promise<boolean>((resolve) => {
+      if (typeof window === "undefined") {
+        resolve(false);
+        return;
+      }
+
+      if (window.kakao?.maps?.services) {
+        setKakaoReady(true);
+        resolve(true);
+        return;
+      }
+
+      const kakaoKey = process.env.NEXT_PUBLIC_KAKAO_JS_KEY;
+
+      if (!kakaoKey) {
+        setDeliveryStatus("카카오 JavaScript 키가 .env.local에 없습니다.");
+        resolve(false);
+        return;
+      }
+
+      const existingScript = document.getElementById(
+        "kakao-map-script",
+      ) as HTMLScriptElement | null;
+
+      const onLoaded = () => {
+        if (!window.kakao?.maps) {
+          setDeliveryStatus("카카오 지도 스크립트 로드 실패");
+          resolve(false);
+          return;
+        }
+
+        window.kakao.maps.load(() => {
+          setKakaoReady(true);
+          resolve(true);
+        });
+      };
+
+      if (existingScript) {
+        existingScript.addEventListener("load", onLoaded, { once: true });
+
+        if (window.kakao?.maps) {
+          onLoaded();
+        }
+
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.id = "kakao-map-script";
+      script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoKey}&libraries=services&autoload=false`;
+      script.async = true;
+      script.onload = onLoaded;
+      script.onerror = () => {
+        setDeliveryStatus(
+          "카카오 지도 스크립트 로드 실패. 플랫폼 Web 도메인 등록을 확인해주세요.",
+        );
+        resolve(false);
+      };
+
+      document.head.appendChild(script);
+    });
+  };
+
+  const getStampDiscount = (stampCount: number) => {
+    if (stampCount < 5) return 0;
+    return stampCount * 600;
+  };
+
+  const copyBankInfo = async () => {
+    try {
+      await navigator.clipboard.writeText(bankInfo);
+      alert("계좌번호가 복사되었습니다.");
+    } catch {
+      alert("복사 실패. 직접 복사해주세요.");
+    }
+  };
+
+  const fetchRecentOrders = async () => {
+    const phone = normalizePhone(orderLookupPhone);
+
+    if (!phone) {
+      alert("휴대폰번호를 입력해주세요.");
+      return;
+    }
+
+    setRecentOrdersLoading(true);
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select(
+        "id, created_at, address, menu, total, memo, payment_method, delivery_fee, delivery_distance_km, status",
+      )
+      .eq("phone", phone)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    setRecentOrdersLoading(false);
+
+    if (error) {
+      alert("최근 주문 조회 실패: " + error.message);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      setRecentOrders([]);
+      alert("해당 휴대폰번호의 주문내역이 없습니다.");
+      return;
+    }
+
+    setRecentOrders(data as RecentOrder[]);
+  };
+
+  const goOrderLookup = async () => {
+    const phone = normalizePhone(orderLookupPhone);
+
+    if (!phone) {
+      alert("휴대폰번호를 입력해주세요.");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select("id")
+      .eq("phone", phone)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) {
+      alert("해당 휴대폰번호의 주문내역이 없습니다.");
+      return;
+    }
+
+    router.push(`/order/${data.id}`);
+  };
+
+  const checkStamp = async () => {
+    const phone = normalizePhone(form.phone);
+
+    if (!phone) {
+      alert("전화번호를 먼저 입력해주세요.");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("stamp_customers")
+      .select("*")
+      .eq("phone", phone)
+      .maybeSingle();
+
+    if (error) {
+      alert("스탬프 조회 실패: " + error.message);
+      return;
+    }
+
+    if (!data) {
+      setStampCustomer({
+        phone,
+        stamp_count: 0,
+        total_orders: 0,
+      });
+
+      setUseStampReward(false);
+      alert("첫 주문 고객입니다. 현재 스탬프 0개");
+      return;
+    }
+
+    setStampCustomer(data);
+    setUseStampReward(false);
+    alert(`현재 스탬프 ${data.stamp_count}개`);
+  };
+
+  const parseOrderMenuToCart = (menuText: string) => {
+    try {
+      const parsed = JSON.parse(menuText) as {
+        name: string;
+        qty: number;
+        basePrice?: number;
+        options?: SelectedOption[];
+        total: number;
+      }[];
+
+      return parsed.map((item, index) => {
+        const qty = Number(item.qty || 1);
+        const options = item.options || [];
+        const optionSum = options.reduce(
+          (sum, option) => sum + Number(option.price || 0),
+          0,
+        );
+        const unitTotal = Math.round(Number(item.total || 0) / Math.max(qty, 1));
+        const basePrice = Number(item.basePrice || Math.max(unitTotal - optionSum, 0));
+
+        return {
+          cartId: `reorder-${Date.now()}-${index}`,
+          menuId: 0,
+          name: item.name,
+          basePrice,
+          qty,
+          options,
+          total: Number(item.total || unitTotal * qty),
+        };
+      });
+    } catch {
+      return [];
+    }
+  };
+
+  const formatOrderDate = (dateText: string) => {
+    const date = new Date(dateText);
+
+    return date.toLocaleString("ko-KR", {
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const getOrderMenuSummary = (menuText: string) => {
+    const lines = parseOrderMenuToCart(menuText);
+
+    if (lines.length === 0) return "메뉴정보 없음";
+
+    const first = lines[0];
+    const totalQty = lines.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+
+    if (lines.length === 1) {
+      return `${first.name} x${first.qty}`;
+    }
+
+    return `${first.name} x${first.qty} 외 ${lines.length - 1}개 / 총 ${totalQty}개`;
+  };
+
+  const reorderSame = (order: RecentOrder) => {
+    const nextCart = parseOrderMenuToCart(order.menu);
+
+    if (nextCart.length === 0) {
+      alert("이전 주문 메뉴를 불러오지 못했습니다.");
+      return;
+    }
+
+    const phone = normalizePhone(orderLookupPhone);
+
+    setCart(nextCart);
+    setForm((prev) => ({
+      ...prev,
+      phone: phone || prev.phone,
+      address: order.address || prev.address,
+    }));
+
+    setSelectedBaseAddress("");
+    setDetailAddress("");
+    setShowOrderForm(true);
+    setShowOrderLookup(false);
+
+    if (order.payment_method) {
+      setPaymentMethod(order.payment_method);
+    }
+
+    if (order.address) {
+      calculateDeliveryFee(order.address);
+    }
+
+    window.scrollTo({
+      top: document.body.scrollHeight,
+      behavior: "smooth",
+    });
+
+    alert("이전 주문을 장바구니에 담았습니다.");
+  };
+
+  const autoFillAddress = async (phoneRaw: string) => {
+    const phone = normalizePhone(phoneRaw);
+
+    if (phone.length < 10) return;
+
+    const { data } = await supabase
+      .from("orders")
+      .select("address")
+      .eq("phone", phone)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (data?.address) {
+      setForm((prev) => ({
+        ...prev,
+        address: data.address,
+      }));
+
+      calculateDeliveryFee(data.address);
+    }
+  };
+
+  const calculateDeliveryFee = async (customerAddress: string) => {
+    const cleanAddress = customerAddress.trim();
+
+    if (!cleanAddress) {
+      setDeliveryDistance(0);
+      setDeliveryFee(0);
+      setDeliveryStatus("주소를 입력하면 배달비가 자동 계산됩니다.");
+      return;
+    }
+
+    setDeliveryStatus("배달비 계산 중...");
+
+    const loaded = await loadKakaoMap();
+
+    if (!loaded || !window.kakao?.maps?.services) {
+      setDeliveryStatus(
+        "카카오 지도 연결이 안 됐습니다. .env.local 키와 Web 플랫폼 등록을 확인해주세요.",
+      );
+      return;
+    }
+
+    const applyDistance = (lat: number, lng: number) => {
+      // 가게 주소: 전주시 완산구 효자천변2길 12-6
+      // 카카오가 가게 주소를 못 찾는 경우를 막으려고 가게 좌표는 고정값으로 사용
+      const storeLat = 35.8083;
+      const storeLng = 127.1153;
+
+      const distance = getDistanceFromLatLonInKm(
+        storeLat,
+        storeLng,
+        lat,
+        lng,
+      );
+
+      setDeliveryDistance(distance);
+
+      if (distance <= 2) {
+        setDeliveryFee(0);
+        setDeliveryStatus("2km 이내 무료배달 지역입니다.");
+        return;
+      }
+
+      const extraDistance = distance - 2;
+      const fee = Math.ceil(extraDistance * 10) * 100;
+
+      setDeliveryFee(fee);
+      setDeliveryStatus(
+        `${distance.toFixed(1)}km / 배달비 ${fee.toLocaleString()}원`,
+      );
+    };
+
+    const geocoder = new window.kakao.maps.services.Geocoder();
+
+    geocoder.addressSearch(
+      cleanAddress,
+      (customerResult: any, customerStatus: any) => {
+        if (
+          customerStatus === window.kakao.maps.services.Status.OK &&
+          customerResult?.[0]
+        ) {
+          const customerLat = parseFloat(customerResult[0].y);
+          const customerLng = parseFloat(customerResult[0].x);
+          applyDistance(customerLat, customerLng);
+          return;
+        }
+
+        // 도로명주소로 못 찾으면 아파트명/건물명 키워드 검색으로 한 번 더 찾기
+        const places = new window.kakao.maps.services.Places();
+        const keyword = cleanAddress.includes("전주")
+          ? cleanAddress
+          : `전주 ${cleanAddress}`;
+
+        places.keywordSearch(keyword, (data: any, status: any) => {
+          if (status !== window.kakao.maps.services.Status.OK || !data?.[0]) {
+            setDeliveryDistance(0);
+            setDeliveryFee(0);
+            setDeliveryStatus(
+              "주소를 찾지 못했습니다. 주소검색 버튼으로 아파트/건물명을 선택해주세요.",
+            );
+            return;
+          }
+
+          const customerLat = parseFloat(data[0].y);
+          const customerLng = parseFloat(data[0].x);
+          applyDistance(customerLat, customerLng);
+        });
+      },
+    );
+  };
+
+  const searchAddressKeyword = async () => {
+    const keyword = addressKeyword.trim();
+
+    if (!keyword) {
+      alert("아파트명이나 건물명을 입력해주세요.");
+      return;
+    }
+
+    const loaded = await loadKakaoMap();
+
+    if (!loaded || !window.kakao?.maps?.services) {
+      alert("카카오 지도가 준비되지 않았습니다.");
+      return;
+    }
+
+    setDeliveryStatus("주소 검색 중...");
+
+    const places = new window.kakao.maps.services.Places();
+    const query = keyword.includes("전주") ? keyword : `전주 ${keyword}`;
+
+    places.keywordSearch(query, (data: any, status: any) => {
+      if (status !== window.kakao.maps.services.Status.OK || !data?.length) {
+        setAddressResults([]);
+        setDeliveryStatus("검색 결과가 없습니다. 동 이름을 같이 입력해보세요.");
+        return;
+      }
+
+      setAddressResults(data.slice(0, 8));
+      setDeliveryStatus("검색 결과에서 주소를 선택해주세요.");
+    });
+  };
+
+  const selectAddressResult = (place: any) => {
+    const baseAddress =
+      place.road_address_name || place.address_name || place.place_name || "";
+
+    if (!baseAddress) {
+      alert("주소 정보를 찾을 수 없습니다.");
+      return;
+    }
+
+    const fullAddress = `${baseAddress} ${detailAddress}`.trim();
+
+    setSelectedBaseAddress(baseAddress);
+    setForm((prev) => ({
+      ...prev,
+      address: fullAddress,
+    }));
+
+    setShowAddressSearch(false);
+    calculateDeliveryFee(baseAddress);
+  };
+
+  const updateDetailAddress = (value: string) => {
+    setDetailAddress(value);
+
+    if (selectedBaseAddress) {
+      setForm((prev) => ({
+        ...prev,
+        address: `${selectedBaseAddress} ${value}`.trim(),
+      }));
+    }
+  };
+
+  const getCurrentLocation = async () => {
+    if (!navigator.geolocation) {
+      alert("현재 위치를 지원하지 않는 브라우저입니다.");
+      return;
+    }
+
+    const loaded = await loadKakaoMap();
+
+    if (!loaded || !window.kakao?.maps?.services) {
+      alert("카카오 지도가 준비되지 않았습니다.");
+      return;
+    }
+
+    setGettingLocation(true);
+    setDeliveryStatus("현재 위치 가져오는 중...");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+
+        const geocoder = new window.kakao.maps.services.Geocoder();
+        const coord = new window.kakao.maps.LatLng(lat, lng);
+
+        geocoder.coord2Address(
+          coord.getLng(),
+          coord.getLat(),
+          (result: any, status: any) => {
+            setGettingLocation(false);
+
+            if (status !== window.kakao.maps.services.Status.OK || !result?.[0]) {
+              setDeliveryStatus("현재 위치 주소 변환 실패");
+              return;
+            }
+
+            const address =
+              result[0].road_address?.address_name ||
+              result[0].address?.address_name;
+
+            if (!address) {
+              setDeliveryStatus("주소를 찾지 못했습니다.");
+              return;
+            }
+
+            const fullAddress = `${address} ${detailAddress}`.trim();
+
+            setSelectedBaseAddress(address);
+            setForm((prev) => ({
+              ...prev,
+              address: fullAddress,
+            }));
+
+            calculateDeliveryFee(address);
+          },
+        );
+      },
+      (error) => {
+        setGettingLocation(false);
+        setDeliveryStatus("위치 권한이 거부되었습니다.");
+        alert("위치 권한 허용이 필요합니다. 브라우저 위치 권한을 허용해주세요.");
+        console.log(error);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      },
+    );
+  };
+
+  const getDistanceFromLatLonInKm = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ) => {
+    const R = 6371;
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(lat1)) *
+        Math.cos(deg2rad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+  };
+
+  const deg2rad = (deg: number) => {
+    return deg * (Math.PI / 180);
+  };
+
+  const groupedMenu = menus.reduce((result: Record<string, Menu[]>, menu) => {
+    const category =
+      menu.category && menu.category.trim() !== "" ? menu.category : "기타";
+
+    if (!result[category]) result[category] = [];
+    result[category].push(menu);
+
+    return result;
+  }, {});
+
+  const getGroupsByMenuId = (menuId:number)=>{
+
+const groupIds = links
+.filter(
+(link)=>link.menu_id===menuId
+)
+.map(
+(link)=>link.group_id
+);
+
+return groups.filter(
+(group)=>groupIds.includes(group.id)
+);
+
+};
+
+  const getItemsByGroupId = (groupId: number) =>
+    items.filter((item) => item.group_id === groupId);
+
+  const openOptionModal = (menu: Menu) => {
+    if (menu.is_soldout) return alert("품절된 메뉴입니다.");
+
+    setSelectedMenu(menu);
+    setSelectedOptions({});
+  };
+
+  const closeOptionModal = () => {
+    setSelectedMenu(null);
+    setSelectedOptions({});
+  };
+
+  const toggleOption = (group: OptionGroup, option: OptionItem) => {
+    if (option.is_soldout) return alert("품절된 옵션입니다.");
+
+    setSelectedOptions((prev) => {
+      const current = prev[group.id] || [];
+
+      if (group.type === "single") {
+        return { ...prev, [group.id]: [option] };
+      }
+
+      const exists = current.some((item) => item.id === option.id);
+
+      return {
+        ...prev,
+        [group.id]: exists
+          ? current.filter((item) => item.id !== option.id)
+          : [...current, option],
+      };
+    });
+  };
+
+  const optionTotal = Object.values(selectedOptions)
+    .flat()
+    .reduce((sum, option) => sum + option.price, 0);
+
+  const selectedMenuTotal = selectedMenu ? selectedMenu.price + optionTotal : 0;
+
+  const addCartWithOptions = () => {
+    if (!selectedMenu) return;
+
+    const optionGroups = getGroupsByMenuId(selectedMenu.id);
+
+    for (const group of optionGroups) {
+      if (group.required) {
+        const selected = selectedOptions[group.id] || [];
+
+        if (selected.length === 0) {
+          return alert(`${group.name} 옵션을 선택해주세요.`);
+        }
+      }
+    }
+
+    const options: SelectedOption[] = Object.entries(selectedOptions).flatMap(
+      ([groupId, optionList]) => {
+        const group = groups.find((item) => item.id === Number(groupId));
+
+        return optionList.map((option) => ({
+          groupName: group?.name || "옵션",
+          optionName: option.name,
+          price: option.price,
+        }));
+      },
+    );
+
+    const cartId = `${selectedMenu.id}-${JSON.stringify(options)}-${Date.now()}`;
+
+    setCart((prev) => [
+      ...prev,
+      {
+        cartId,
+        menuId: selectedMenu.id,
+        name: selectedMenu.name,
+        basePrice: selectedMenu.price,
+        qty: 1,
+        options,
+        total: selectedMenuTotal,
+      },
+    ]);
+
+    closeOptionModal();
+  };
+
+  const getUnitPrice = (item: CartItem) => {
+    return (
+      item.basePrice +
+      item.options.reduce((sum, option) => sum + option.price, 0)
+    );
+  };
+
+  const increaseCart = (cartId: string) => {
+    setCart((prev) =>
+      prev.map((item) =>
+        item.cartId === cartId
+          ? {
+              ...item,
+              qty: item.qty + 1,
+              total: getUnitPrice(item) * (item.qty + 1),
+            }
+          : item,
+      ),
+    );
+  };
+
+  const decreaseCart = (cartId: string) => {
+    setCart((prev) =>
+      prev
+        .map((item) =>
+          item.cartId === cartId
+            ? {
+                ...item,
+                qty: item.qty - 1,
+                total: getUnitPrice(item) * (item.qty - 1),
+              }
+            : item,
+        )
+        .filter((item) => item.qty > 0),
+    );
+  };
+
+  const removeCart = (cartId: string) => {
+    setCart((prev) => prev.filter((item) => item.cartId !== cartId));
+  };
+
+  const menuTotal = cart.reduce((sum, item) => sum + item.total, 0);
+  const total = menuTotal + deliveryFee;
+
+  const stampCount = stampCustomer?.stamp_count || 0;
+  const availableStampDiscount = getStampDiscount(stampCount);
+  const finalStampDiscount = useStampReward
+    ? Math.min(availableStampDiscount, total)
+    : 0;
+  const finalTotal = Math.max(total - finalStampDiscount, 0);
+
+  const scrollToCategory = (category: string) => {
+    const target = categoryRefs.current[category];
+
+    target?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
+  const scrollToCart = () => {
+    setShowOrderForm(true);
+
+    setTimeout(() => {
+      const target = orderFormRef.current || cartRef.current;
+
+      target?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+  };
+
+  const submitOrder = async () => {
+    if (cart.length === 0) return alert("메뉴를 담아주세요");
+
+    if (menuTotal < 11000) {
+      return alert(
+        `최소 주문금액은 11,000원입니다.\n현재 메뉴금액 ${menuTotal.toLocaleString()}원`,
+      );
+    }
+
+    const finalAddress = selectedBaseAddress
+      ? `${selectedBaseAddress} ${detailAddress}`.trim()
+      : `${form.address} ${detailAddress}`.trim();
+
+    if (!form.phone || !finalAddress) {
+      return alert("전화번호와 주소를 입력해주세요");
+    }
+
+    if (!paymentMethod) {
+      return alert("결제수단을 선택해주세요.");
+    }
+
+    const phone = normalizePhone(form.phone);
+
+    const menuText = JSON.stringify(
+      cart.map((item) => ({
+        name: item.name,
+        qty: item.qty,
+        basePrice: item.basePrice,
+        options: item.options,
+        total: item.total,
+      })),
+    );
+
+    const paymentMemo =
+      paymentMethod === "계좌이체"
+        ? `${paymentMethod} / ${bankInfo}`
+        : paymentMethod;
+
+    const finalMemo = [selectedRequest, form.memo, paymentMemo]
+      .filter(Boolean)
+      .join(" / ");
+
+    const { data, error } = await supabase
+      .from("orders")
+      .insert({
+        customer: form.name || "고객",
+        phone,
+        address: finalAddress,
+        menu: menuText,
+        total: finalTotal,
+        status: "접수대기",
+        memo: finalMemo,
+        payment_method: paymentMethod,
+        delivery_fee: deliveryFee,
+        delivery_distance_km: Number(deliveryDistance.toFixed(2)),
+        stamp_discount: finalStampDiscount,
+        used_stamp_reward: useStampReward,
+        stamp_processed: false,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      alert("주문 저장 실패: " + error.message);
+      return;
+    }
+
+    if (!data?.id) {
+      alert("주문번호 생성 실패");
+      return;
+    }
+
+    router.push(`/order/${data.id}`);
+  };
+
+  return (
+    <main className="relative min-h-screen overflow-hidden bg-[#050505] bg-[radial-gradient(circle_at_top,#3b2f0b_0%,#050505_34%)] pb-24 text-[#f7e7b0] md:pb-0">
+      <div
+        className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url('/images/space-bg.png')" }}
+      />
+
+      <div className="fixed inset-0 z-0 bg-[#050505]/82" />
+
+      <div className="relative z-10 mx-auto max-w-5xl p-2.5 md:p-4">
+        <section className="mb-5 flex min-h-[36vh] flex-col items-center justify-center rounded-3xl border border-[#d4af3735] bg-gradient-to-b from-[#151007]/90 via-black/70 to-[#050505]/95 px-3 py-4 text-center shadow-[0_0_70px_rgba(212,175,55,.18)] backdrop-blur-xl md:mb-8 md:min-h-[54vh] md:py-6">
+          <img
+            src="/images/penguin-logo.png"
+            alt="황제떡볶이"
+            className="w-[165px] object-contain drop-shadow-[0_0_60px_rgba(212,175,55,.85)] md:w-[700px]"
+          />
+
+          <div className="mt-2 rounded-full border border-[#d4af3748] bg-[#120e05]/85 px-3 py-1 text-[10px] font-black tracking-[-0.03em] text-[#f4d56d] md:text-xs">
+            효자동 순대 · 내장 맛집
+          </div>
+
+          <div className="mt-2 rounded-xl border border-[#d4af3728] bg-[#050505]/90 px-3.5 py-2 text-[11px] font-black text-zinc-200 md:text-sm">
+            최소 주문금액
+            <span className="ml-2 text-[#f4d56d]">11,000원</span>
+          </div>
+
+          <div className="mt-3 grid w-full max-w-xs grid-cols-2 gap-2 md:max-w-sm">
+            <a
+              href="/stamp"
+              className="rounded-xl border border-[#d4af3748] bg-[#050505]/90 px-3 py-2 text-[11px] font-black text-[#f4d56d] shadow-lg shadow-[#d4af37]/10 md:text-sm"
+            >
+              내 스탬프
+            </a>
+
+            <button
+              type="button"
+              onClick={() => setShowOrderLookup(!showOrderLookup)}
+              className="rounded-xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] px-3 py-2 text-[11px] font-black text-black shadow-lg shadow-[#d4af37]/20 md:text-sm"
+            >
+              📦 주문내역
+            </button>
+          </div>
+
+          {showOrderLookup && (
+            <div className="mt-3 w-full max-w-xs rounded-xl border border-[#d4af3735] bg-[#050505]/92 p-2.5 md:max-w-sm">
+              <input
+                placeholder="휴대폰번호 입력"
+                value={orderLookupPhone}
+                onChange={(e) => {
+                  setOrderLookupPhone(e.target.value);
+                  setRecentOrders([]);
+                }}
+                className="w-full rounded-lg border border-[#d4af3728] bg-[#060606] p-2 text-center text-xs font-bold text-[#fff2b8] outline-none placeholder:text-zinc-500 focus:border-yellow-500 md:text-sm"
+              />
+
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={fetchRecentOrders}
+                  disabled={recentOrdersLoading}
+                  className="rounded-lg border border-[#d4af3735] bg-[#050505] p-2.5 text-xs font-black text-[#f4d56d]"
+                >
+                  {recentOrdersLoading ? "불러오는 중" : "최근주문"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={goOrderLookup}
+                  className="rounded-lg bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] p-2.5 text-xs font-black text-black"
+                >
+                  상태보기
+                </button>
+              </div>
+
+              {recentOrders.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {recentOrders.map((order) => (
+                    <div
+                      key={order.id}
+                      className="rounded-xl border border-[#d4af3724] bg-[#070707] p-2.5 text-left"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-bold text-zinc-500">
+                            #{order.id} · {formatOrderDate(order.created_at)} · {order.status}
+                          </div>
+                          <div className="mt-1 truncate text-xs font-black text-[#fff2b8]">
+                            {getOrderMenuSummary(order.menu)}
+                          </div>
+                          <div className="mt-1 truncate text-[11px] text-zinc-500">
+                            {order.address}
+                          </div>
+                        </div>
+
+                        <div className="shrink-0 text-xs font-black text-[#f4d56d]">
+                          {Number(order.total || 0).toLocaleString()}원
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => reorderSame(order)}
+                        className="mt-2 w-full rounded-lg bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] p-2 text-xs font-black text-black"
+                      >
+                        그대로 재주문
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+
+        <div className="sticky top-0 z-30 mb-3 -mx-2.5 border-y border-[#d4af3724] bg-[#050505]/92 px-2.5 py-2 shadow-xl shadow-black/60 backdrop-blur md:top-0 md:mx-0 md:rounded-xl md:border md:px-3">
+          <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {Object.keys(groupedMenu).map((category) => (
+              <button
+                key={category}
+                type="button"
+                onClick={() => scrollToCategory(category)}
+                className="shrink-0 rounded-full border border-[#d4af3735] bg-gradient-to-b from-[#17130a] to-[#050505] px-3 py-2 text-xs font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.12)] active:bg-gradient-to-r active:from-[#fff1a8] active:via-[#d4af37] active:to-[#8a6a14] active:text-black md:text-sm"
+              >
+                {category}
+              </button>
+            ))}
+
+            {cart.length > 0 && (
+              <button
+                type="button"
+                onClick={scrollToCart}
+                className="shrink-0 rounded-full bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] px-3 py-2 text-xs font-black text-black shadow-lg shadow-[#d4af37]/20 md:hidden"
+              >
+                🛒 장바구니
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="md:col-span-2">
+            <div className="space-y-5">
+              {Object.entries(groupedMenu).map(([category, menuItems]) => (
+                <section
+                  key={category}
+                  ref={(element) => {
+                    categoryRefs.current[category] = element;
+                  }}
+                  className="scroll-mt-20 md:scroll-mt-24"
+                >
+                  <h2 className="mb-3 border-b border-[#d4af3735] bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] bg-clip-text pb-1.5 text-lg font-black tracking-[-0.04em] text-transparent drop-shadow-[0_0_18px_rgba(212,175,55,.25)] md:text-xl">
+                    {category}
+                  </h2>
+
+                  <div className="grid gap-2">
+                    {menuItems.map((menu) => (
+                      <div
+                        key={menu.id}
+                        className={`rounded-2xl border border-[#d4af3728] bg-gradient-to-b from-[#111111]/95 to-[#050505]/95 p-3 shadow-[0_0_22px_rgba(212,175,55,.08)] backdrop-blur-xl transition-all duration-300 hover:border-[#d4af37] hover:shadow-[0_0_30px_rgba(212,175,55,.22)] ${
+                          menu.is_soldout ? "opacity-50" : ""
+                        }`}
+                      >
+                        <div className="flex justify-between gap-2">
+                          <div>
+                            <h3 className="text-sm font-black tracking-[-0.04em] text-[#fff8d9] md:text-base">
+                              {menu.name}
+                            </h3>
+
+                            <div className="mt-0.5 text-[11px] leading-snug text-zinc-400 md:text-xs">
+                              {menu.description || ""}
+                            </div>
+
+                            <div className="mt-1 text-base font-black text-[#f4d56d] md:text-lg">
+                              {menu.price.toLocaleString()}원
+                            </div>
+                          </div>
+
+                          {menu.is_soldout && (
+                            <div className="h-fit rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-black">
+                              품절
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={() => openOptionModal(menu)}
+                          disabled={menu.is_soldout}
+                          className={`mt-2 w-full rounded-lg p-2 text-[11px] font-black md:text-xs ${
+                            menu.is_soldout
+                              ? "bg-zinc-800 text-zinc-500"
+                              : "bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] text-black shadow-[0_0_22px_rgba(212,175,55,.28)]"
+                          }`}
+                        >
+                          {menu.is_soldout ? "품절" : "선택하기"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </div>
+
+          <aside>
+            <div ref={cartRef} className="md:sticky md:top-3 rounded-xl border border-[#d4af3735] bg-gradient-to-b from-[#111111]/95 to-[#050505]/95 p-2.5 shadow-2xl shadow-black/70 backdrop-blur">
+              <h2 className="mb-2 text-base font-black text-[#f4d56d] md:text-lg">
+                장바구니
+              </h2>
+
+              {cart.length === 0 && (
+                <div className="rounded-lg bg-zinc-900/80 p-2.5 text-xs text-zinc-500">
+                  메뉴를 담아주세요
+                </div>
+              )}
+
+              {cart.map((item) => (
+                <div
+                  key={item.cartId}
+                  className="border-b border-zinc-900 py-2"
+                >
+                  <div className="text-xs font-black text-[#fff8d9] md:text-sm">{item.name}</div>
+
+                  {item.options.length > 0 && (
+                    <div className="mt-2 space-y-1 text-xs text-zinc-400">
+                      {item.options.map((option, index) => (
+                        <div key={index}>
+                          - {option.groupName}: {option.optionName}
+                          {option.price > 0 &&
+                            ` +${option.price.toLocaleString()}원`}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <div className="text-xs font-black text-[#f4d56d] md:text-sm">
+                      {item.total.toLocaleString()}원
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => decreaseCart(item.cartId)}
+                        className="rounded-md bg-zinc-800 px-2 py-0.5 text-xs font-black"
+                      >
+                        -
+                      </button>
+
+                      <div className="px-1 text-sm font-black">{item.qty}</div>
+
+                      <button
+                        onClick={() => increaseCart(item.cartId)}
+                        className="rounded-md bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] px-2 py-0.5 text-xs font-black text-black"
+                      >
+                        +
+                      </button>
+
+                      <button
+                        onClick={() => removeCart(item.cartId)}
+                        className="rounded-md bg-red-700 px-2 py-0.5 text-[11px] font-black"
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <div className="mt-3">
+                <div className="rounded-lg border border-[#d4af3718] bg-[#050505]/82 p-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-zinc-400">메뉴금액</span>
+                    <span className="font-bold">
+                      {menuTotal.toLocaleString()}원
+                    </span>
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-between text-sm">
+                    <span className="text-zinc-400">
+                      배달비 ({deliveryDistance.toFixed(1)}km)
+                    </span>
+
+                    <span className="text-xs font-black text-[#f4d56d] md:text-sm">
+                      {deliveryFee.toLocaleString()}원
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-2 text-xs text-zinc-500">총금액</div>
+
+                <div className="text-xl font-black text-[#f4d56d] md:text-2xl">
+                  {total.toLocaleString()}원
+                </div>
+
+                {useStampReward && (
+                  <div className="mt-2 text-base font-black text-green-400">
+                    스탬프 할인 -{finalStampDiscount.toLocaleString()}원
+                  </div>
+                )}
+
+                <div className="mt-1 text-base font-black text-red-400 md:text-lg">
+                  결제금액 {finalTotal.toLocaleString()}원
+                </div>
+
+                {cart.length > 0 && menuTotal < 11000 && (
+                  <div className="mt-2 text-sm text-red-400">
+                    최소 주문금액까지 {(11000 - menuTotal).toLocaleString()}원
+                    부족
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => setShowOrderForm(true)}
+                disabled={cart.length === 0 || menuTotal < 11000}
+                className={`mt-3 w-full rounded-lg p-2.5 text-sm font-black ${
+                  cart.length === 0 || menuTotal < 11000
+                    ? "bg-zinc-800 text-zinc-500"
+                    : "bg-red-500"
+                }`}
+              >
+                주문하기
+              </button>
+
+              {showOrderForm && (
+                <div ref={orderFormRef} className="mt-3 scroll-mt-24 space-y-2">
+                  <input
+                    placeholder="닉네임"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    className="w-full rounded-lg border border-[#d4af3724] bg-[#050505] p-2.5 text-sm text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
+                  />
+
+                  <input
+                    placeholder="전화번호 *"
+                    value={form.phone}
+                    onChange={(e) => {
+                      const value = e.target.value;
+
+                      setForm({ ...form, phone: value });
+                      setStampCustomer(null);
+                      setUseStampReward(false);
+                      autoFillAddress(value);
+                    }}
+                    className="w-full rounded-lg border border-[#d4af3724] bg-[#050505] p-2.5 text-sm text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
+                  />
+
+                  <button
+                    onClick={checkStamp}
+                    className="w-full rounded-lg border border-yellow-500/30 bg-[#050505] p-2.5 text-sm font-black text-[#f4d56d] shadow-lg shadow-[#d4af37]/10"
+                  >
+                    스탬프 조회
+                  </button>
+
+                  {stampCustomer && (
+                    <div className="rounded-xl border border-[#d4af3728] bg-[#080808] p-3">
+                      <div className="text-xs font-black text-[#f4d56d] md:text-sm">
+                        현재 스탬프 {stampCustomer.stamp_count}개
+                      </div>
+
+                      {availableStampDiscount > 0 ? (
+                        <button
+                          onClick={() => setUseStampReward(!useStampReward)}
+                          className={`mt-2.5 w-full rounded-lg p-2.5 text-sm font-black ${
+                            useStampReward
+                              ? "bg-green-600"
+                              : "bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] text-black shadow-[0_0_22px_rgba(212,175,55,.28)]"
+                          }`}
+                        >
+                          {useStampReward
+                            ? `${finalStampDiscount.toLocaleString()}원 할인 적용됨`
+                            : `${availableStampDiscount.toLocaleString()}원 할인 사용하기`}
+                        </button>
+                      ) : (
+                        <div className="mt-2 text-sm text-zinc-400">
+                          스탬프 5개 이상부터 사용 가능
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddressSearch(true)}
+                      className="rounded-lg border border-[#d4af3735] bg-[#050505] p-2.5 text-xs font-black text-[#f4d56d] md:text-sm"
+                    >
+                      🔎 주소검색
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={getCurrentLocation}
+                      disabled={gettingLocation}
+                      className="rounded-lg bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] p-2.5 text-xs font-black text-black md:text-sm"
+                    >
+                      {gettingLocation ? "📍 위치 찾는 중" : "현재위치"}
+                    </button>
+                  </div>
+
+                  <input
+                    placeholder="주소 * 예: 효자동 우미린, 서신동 아이파크"
+                    value={form.address}
+                    onChange={(e) => {
+                      const value = e.target.value;
+
+                      setSelectedBaseAddress("");
+                      setDetailAddress("");
+                      setForm({ ...form, address: value });
+                      calculateDeliveryFee(value);
+                    }}
+                    className="w-full rounded-lg border border-[#d4af3724] bg-[#050505] p-2.5 text-sm text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
+                  />
+
+                  <input
+                    placeholder="상세주소 예: 101동 1001호 / 현관 비번"
+                    value={detailAddress}
+                    onChange={(e) => updateDetailAddress(e.target.value)}
+                    className="w-full rounded-lg border border-[#d4af3724] bg-[#050505] p-2.5 text-sm text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      calculateDeliveryFee(selectedBaseAddress || form.address)
+                    }
+                    className="w-full rounded-lg bg-zinc-900 p-2.5 text-xs font-black text-[#f4d56d] md:text-sm"
+                  >
+                    배달비 다시 계산
+                  </button>
+
+                  <div className="rounded-lg border border-[#d4af3718] bg-[#070707] p-2.5 text-xs md:text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">가게 기준 거리</span>
+                      <span className="font-bold text-[#f4d56d]">
+                        {deliveryDistance.toFixed(1)}km
+                      </span>
+                    </div>
+
+                    <div className="mt-2 flex justify-between">
+                      <span className="text-zinc-400">배달비</span>
+                      <span className="text-xs font-black text-[#f4d56d] md:text-sm">
+                        {deliveryFee.toLocaleString()}원
+                      </span>
+                    </div>
+
+                    <div className="mt-2 text-xs text-zinc-500">
+                      2km까지 무료, 2km 초과 시 100m당 100원 추가
+                    </div>
+
+                    <div className="mt-2 text-xs font-bold text-green-400">
+                      {deliveryStatus}
+                    </div>
+
+                    {!kakaoReady && (
+                      <div className="mt-1 text-xs text-red-400">
+                        카카오 지도 준비 중이거나 키 설정 확인 필요
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-[#d4af3724] bg-[#050505]/94">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowDeliveryRequests(!showDeliveryRequests)
+                      }
+                      className="flex w-full items-center justify-between p-2.5 text-sm font-black text-[#fff2b8]"
+                    >
+                      <span>배달 요청사항</span>
+                      <span>{showDeliveryRequests ? "접기 ▲" : "열기 ▼"}</span>
+                    </button>
+
+                    {showDeliveryRequests && (
+                      <div className="border-t border-[#d4af3718] p-2.5">
+                        <div className="grid gap-2">
+                          {deliveryRequests.map((request) => (
+                            <button
+                              key={request}
+                              type="button"
+                              onClick={() => setSelectedRequest(request)}
+                              className={`rounded-lg p-2.5 text-left text-sm font-black ${
+                                selectedRequest === request
+                                  ? "bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] text-black shadow-[0_0_22px_rgba(212,175,55,.28)]"
+                                  : "bg-zinc-900 text-[#fff2b8]"
+                              }`}
+                            >
+                              {request}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedRequest && (
+                      <div className="px-3 pb-3 text-xs font-bold text-[#f4d56d] md:text-sm">
+                        선택됨: {selectedRequest}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-[#d4af3724] bg-[#050505]/94">
+                    <button
+                      type="button"
+                      onClick={() => setShowPaymentMethods(!showPaymentMethods)}
+                      className="flex w-full items-center justify-between p-2.5 text-sm font-black text-[#fff2b8]"
+                    >
+                      <span>결제수단</span>
+                      <span>{showPaymentMethods ? "접기 ▲" : "열기 ▼"}</span>
+                    </button>
+
+                    {showPaymentMethods && (
+                      <div className="border-t border-[#d4af3718] p-2.5">
+                        <div className="grid gap-2">
+                          {paymentMethods.map((method) => (
+                            <button
+                              key={method}
+                              type="button"
+                              onClick={() => setPaymentMethod(method)}
+                              className={`rounded-lg p-2.5 text-left text-sm font-black ${
+                                paymentMethod === method
+                                  ? "bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] text-black shadow-[0_0_22px_rgba(212,175,55,.28)]"
+                                  : "bg-zinc-900 text-[#fff2b8]"
+                              }`}
+                            >
+                              {method}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {paymentMethod && (
+                      <div className="px-3 pb-3 text-xs font-bold text-[#f4d56d] md:text-sm">
+                        선택됨: {paymentMethod}
+                      </div>
+                    )}
+                  </div>
+
+                  {paymentMethod === "계좌이체" && (
+                    <div className="rounded-xl border border-[#d4af3735] bg-[#070707] p-3">
+                      <div className="mb-2 text-sm text-zinc-400">
+                        입금 계좌
+                      </div>
+
+                      <div className="text-sm font-black text-[#f4d56d] md:text-base">
+                        {bankInfo}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={copyBankInfo}
+                        className="mt-2 w-full rounded-lg bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] p-2.5 text-sm font-black text-black"
+                      >
+                        계좌번호 복사
+                      </button>
+
+                      <div className="mt-2 text-xs text-zinc-400">
+                        입금 확인 후 주문이 접수됩니다.
+                      </div>
+                    </div>
+                  )}
+
+                  <textarea
+                    placeholder="추가 요청사항 예: 덜 맵게, 단무지 많이 주세요"
+                    value={form.memo}
+                    onChange={(e) => setForm({ ...form, memo: e.target.value })}
+                    className="w-full rounded-lg border border-[#d4af3724] bg-[#050505] p-2.5 text-sm text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
+                  />
+
+                  <button
+                    onClick={submitOrder}
+                    className="w-full rounded-lg bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] p-3 text-sm font-black text-black shadow-lg shadow-[#d4af37]/20"
+                  >
+                    주문 접수하기
+                  </button>
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
+
+
+        {cart.length > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#d4af3748] bg-[#050505]/97 p-2.5 shadow-[0_-12px_40px_rgba(212,175,55,.16)] backdrop-blur-xl md:hidden">
+            <button
+              type="button"
+              onClick={scrollToCart}
+              className="flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] px-4 py-3 text-black shadow-lg shadow-[#d4af37]/30"
+            >
+              <div className="text-left">
+                <div className="text-xs font-black opacity-80">
+                  🛒 {cart.reduce((sum, item) => sum + item.qty, 0)}개 담김
+                </div>
+                <div className="text-lg font-black tracking-[-0.04em]">
+                  {finalTotal.toLocaleString()}원
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-[#050505] px-3 py-2 text-sm font-black text-[#f4d56d]">
+                주문하기
+              </div>
+            </button>
+          </div>
+        )}
+
+        {showAddressSearch && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505]/92 p-4">
+            <div className="max-h-[86vh] w-full max-w-md overflow-y-auto rounded-3xl border border-[#d4af3735] bg-gradient-to-b from-[#111111] to-[#050505] p-3 shadow-[0_0_55px_rgba(212,175,55,.18)]">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-black text-[#f4d56d]">
+                    주소검색
+                  </h2>
+                  <div className="mt-1 text-xs text-zinc-400">
+                    아파트명, 건물명, 도로명주소 검색 가능
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowAddressSearch(false)}
+                  className="rounded-lg bg-zinc-800 px-3 py-1.5 text-sm font-black text-[#fff2b8]"
+                >
+                  닫기
+                </button>
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  placeholder="예: 효자동 우미린 / 전주 더샵"
+                  value={addressKeyword}
+                  onChange={(e) => setAddressKeyword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") searchAddressKeyword();
+                  }}
+                  className="min-w-0 flex-1 rounded-lg border border-[#d4af3724] bg-[#050505] p-2.5 text-sm text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
+                />
+
+                <button
+                  type="button"
+                  onClick={searchAddressKeyword}
+                  className="rounded-lg bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] px-4 py-2.5 text-sm font-black text-black"
+                >
+                  검색
+                </button>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {addressResults.length === 0 ? (
+                  <div className="rounded-lg bg-zinc-900/80 p-3 text-sm text-zinc-500">
+                    검색어를 입력하고 검색해주세요.
+                  </div>
+                ) : (
+                  addressResults.map((place, index) => {
+                    const mainAddress =
+                      place.road_address_name ||
+                      place.address_name ||
+                      place.place_name;
+
+                    return (
+                      <button
+                        key={`${place.id || index}`}
+                        type="button"
+                        onClick={() => selectAddressResult(place)}
+                        className="w-full rounded-lg border border-[#d4af3718] bg-[#050505]/90 p-3 text-left"
+                      >
+                        <div className="text-sm font-black text-[#f4d56d]">
+                          {place.place_name}
+                        </div>
+                        <div className="mt-1 text-xs text-zinc-300">
+                          {mainAddress}
+                        </div>
+                        {place.phone && (
+                          <div className="mt-1 text-xs text-zinc-500">
+                            {place.phone}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedMenu && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505]/92 p-4">
+            <div className="max-h-[86vh] w-full max-w-md overflow-y-auto rounded-3xl border border-[#d4af3735] bg-gradient-to-b from-[#111111] to-[#050505] p-3 shadow-[0_0_55px_rgba(212,175,55,.18)] md:max-w-lg">
+              <div className="mb-3 flex justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-black text-[#f4d56d] md:text-xl">
+                    {selectedMenu.name}
+                  </h2>
+
+                  <div className="mt-1 text-sm text-zinc-400">
+                    기본가격 {selectedMenu.price.toLocaleString()}원
+                  </div>
+                </div>
+
+                <button
+                  onClick={closeOptionModal}
+                  className="h-fit rounded-lg bg-zinc-700 px-3 py-1.5 text-sm font-black"
+                >
+                  닫기
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {getGroupsByMenuId(selectedMenu.id).map((group) => (
+                  <div key={group.id} className="rounded-lg bg-[#050505]/82 border border-[#d4af3718] p-2">
+                    <div className="mb-3">
+                      <div className="text-sm font-black text-[#fff8d9] md:text-base">{group.name}</div>
+
+                      <div className="text-xs text-zinc-400">
+                        {group.type === "single"
+                          ? "하나만 선택"
+                          : "여러 개 선택"}
+                        {" / "}
+                        {group.required ? "필수" : "선택"}
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2">
+                      {getItemsByGroupId(group.id).map((option) => {
+                        const checked =
+                          selectedOptions[group.id]?.some(
+                            (item) => item.id === option.id,
+                          ) || false;
+
+                        return (
+                          <button
+                            key={option.id}
+                            onClick={() => toggleOption(group, option)}
+                            disabled={option.is_soldout}
+                            className={`rounded-lg p-2 text-left text-xs font-black md:text-sm ${
+                              option.is_soldout
+                                ? "bg-zinc-800 text-zinc-500"
+                                : checked
+                                  ? "bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] text-black shadow-[0_0_22px_rgba(212,175,55,.28)]"
+                                  : "bg-[#050505] text-white"
+                            }`}
+                          >
+                            <div className="flex justify-between gap-2">
+                              <span>
+                                {option.name}
+                                {option.is_soldout && " (품절)"}
+                              </span>
+
+                              <span>
+                                {option.price > 0
+                                  ? `+${option.price.toLocaleString()}원`
+                                  : "무료"}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 rounded-lg border border-[#d4af3718] bg-[#050505] p-3">
+                <div className="text-sm text-zinc-400">합계</div>
+
+                <div className="text-lg font-black text-[#f4d56d] md:text-xl">
+                  {selectedMenuTotal.toLocaleString()}원
+                </div>
+              </div>
+
+              <button
+                onClick={addCartWithOptions}
+                className="mt-3 w-full rounded-lg bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] p-3 text-sm font-black text-black"
+              >
+                장바구니 담기
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
