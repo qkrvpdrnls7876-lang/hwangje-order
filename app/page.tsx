@@ -76,6 +76,13 @@ type RecentOrder = {
   status: string;
 };
 
+type SavedCustomerInfo = {
+  name: string;
+  phone: string;
+  address: string;
+  detailAddress: string;
+};
+
 export default function Home() {
   const router = useRouter();
 
@@ -85,6 +92,8 @@ export default function Home() {
 
   const bankInfo = "전북은행 000-0000-0000 박여진";
   const STORE_ADDRESS = "전북 전주시 완산구 효자천변2길 12-6 105호";
+  const MAX_DELIVERY_DISTANCE_KM = 8;
+  const SAVED_CUSTOMER_KEY = "hwangje_saved_customer";
 
   const [menus, setMenus] = useState<Menu[]>([]);
   const [groups, setGroups] = useState<OptionGroup[]>([]);
@@ -178,10 +187,68 @@ if (linksResult.error)
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const saved = localStorage.getItem(SAVED_CUSTOMER_KEY);
+      if (!saved) return;
+
+      const parsed = JSON.parse(saved) as {
+        name?: string;
+        phone?: string;
+        address?: string;
+        detailAddress?: string;
+      };
+
+      setForm((prev) => ({
+        ...prev,
+        name: parsed.name || "",
+        phone: parsed.phone ? formatPhone(parsed.phone) : "",
+        address: parsed.address || "",
+      }));
+
+      setDetailAddress(parsed.detailAddress || "");
+
+      if (parsed.address) {
+        calculateDeliveryFee(parsed.address);
+      }
+    } catch {
+      localStorage.removeItem(SAVED_CUSTOMER_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
     loadKakaoMap();
   }, []);
 
   const normalizePhone = (phone: string) => phone.replace(/[^0-9]/g, "");
+
+  const formatPhone = (value: string) => {
+    const numbers = normalizePhone(value).slice(0, 11);
+
+    if (numbers.length <= 3) return numbers;
+    if (numbers.length <= 7) return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
+
+    return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`;
+  };
+
+  const isValidKoreanPhone = (value: string) => {
+    const phone = normalizePhone(value);
+    return /^010\d{8}$/.test(phone);
+  };
+
+  const saveCustomerInfo = (next?: Partial<SavedCustomerInfo>) => {
+    if (typeof window === "undefined") return;
+
+    const merged: SavedCustomerInfo = {
+      name: next?.name ?? form.name,
+      phone: formatPhone(next?.phone ?? form.phone),
+      address: next?.address ?? form.address,
+      detailAddress: next?.detailAddress ?? detailAddress,
+    };
+
+    localStorage.setItem(SAVED_CUSTOMER_KEY, JSON.stringify(merged));
+  };
   const loadKakaoMap = () => {
     return new Promise<boolean>((resolve) => {
       if (typeof window === "undefined") {
@@ -473,6 +540,10 @@ if (linksResult.error)
         address: data.address,
       }));
 
+      saveCustomerInfo({
+        address: data.address,
+      });
+
       calculateDeliveryFee(data.address);
     }
   };
@@ -512,6 +583,14 @@ if (linksResult.error)
       );
 
       setDeliveryDistance(distance);
+
+      if (distance > MAX_DELIVERY_DISTANCE_KM) {
+        setDeliveryFee(0);
+        setDeliveryStatus(
+          `${distance.toFixed(1)}km / 배달 가능 거리 8km를 초과했습니다.`,
+        );
+        return;
+      }
 
       if (distance <= 2) {
         setDeliveryFee(0);
@@ -616,6 +695,11 @@ if (linksResult.error)
       address: fullAddress,
     }));
 
+    saveCustomerInfo({
+      address: fullAddress,
+      detailAddress,
+    });
+
     setShowAddressSearch(false);
     calculateDeliveryFee(baseAddress);
   };
@@ -624,11 +708,24 @@ if (linksResult.error)
     setDetailAddress(value);
 
     if (selectedBaseAddress) {
+      const nextAddress = `${selectedBaseAddress} ${value}`.trim();
+
       setForm((prev) => ({
         ...prev,
-        address: `${selectedBaseAddress} ${value}`.trim(),
+        address: nextAddress,
       }));
+
+      saveCustomerInfo({
+        address: nextAddress,
+        detailAddress: value,
+      });
+
+      return;
     }
+
+    saveCustomerInfo({
+      detailAddress: value,
+    });
   };
 
   const getCurrentLocation = async () => {
@@ -682,6 +779,11 @@ if (linksResult.error)
               ...prev,
               address: fullAddress,
             }));
+
+            saveCustomerInfo({
+              address: fullAddress,
+              detailAddress,
+            });
 
             calculateDeliveryFee(address);
           },
@@ -930,6 +1032,20 @@ return groups.filter(
       return alert("전화번호와 주소를 입력해주세요");
     }
 
+    if (!isValidKoreanPhone(form.phone)) {
+      return alert("휴대폰번호는 010으로 시작하는 11자리 번호로 입력해주세요.");
+    }
+
+    if (deliveryDistance > MAX_DELIVERY_DISTANCE_KM) {
+      return alert(
+        `배달 가능 거리는 최대 8km입니다.\n현재 거리: ${deliveryDistance.toFixed(1)}km`,
+      );
+    }
+
+    if (deliveryStatus.includes("주소를 찾지 못했습니다") || deliveryStatus.includes("초과")) {
+      return alert("배달 가능한 주소인지 다시 확인해주세요.");
+    }
+
     if (!paymentMethod) {
       return alert("결제수단을 선택해주세요.");
     }
@@ -985,6 +1101,12 @@ return groups.filter(
       return;
     }
 
+    saveCustomerInfo({
+      phone: formatPhone(form.phone),
+      address: finalAddress,
+      detailAddress,
+    });
+
     router.push(`/order/${data.id}`);
   };
 
@@ -1037,7 +1159,7 @@ return groups.filter(
                 placeholder="휴대폰번호 입력"
                 value={orderLookupPhone}
                 onChange={(e) => {
-                  setOrderLookupPhone(e.target.value);
+                  setOrderLookupPhone(formatPhone(e.target.value));
                   setRecentOrders([]);
                 }}
                 className="w-full rounded-lg border border-[#d4af3728] bg-[#060606] p-2 text-center text-xs font-bold text-[#fff2b8] outline-none placeholder:text-zinc-500 focus:border-yellow-500 md:text-sm"
@@ -1298,13 +1420,25 @@ return groups.filter(
                     부족
                   </div>
                 )}
+
+                {deliveryDistance > MAX_DELIVERY_DISTANCE_KM && (
+                  <div className="mt-2 rounded-lg border border-red-500/30 bg-red-950/40 p-2 text-sm font-black text-red-300">
+                    배달 가능 거리 8km 초과로 주문할 수 없습니다.
+                  </div>
+                )}
               </div>
 
               <button
                 onClick={() => setShowOrderForm(true)}
-                disabled={cart.length === 0 || menuTotal < 11000}
+                disabled={
+                  cart.length === 0 ||
+                  menuTotal < 11000 ||
+                  deliveryDistance > MAX_DELIVERY_DISTANCE_KM
+                }
                 className={`mt-3 w-full rounded-lg p-2.5 text-sm font-black ${
-                  cart.length === 0 || menuTotal < 11000
+                  cart.length === 0 ||
+                  menuTotal < 11000 ||
+                  deliveryDistance > MAX_DELIVERY_DISTANCE_KM
                     ? "bg-zinc-800 text-zinc-500"
                     : "bg-red-500"
                 }`}
@@ -1317,7 +1451,15 @@ return groups.filter(
                   <input
                     placeholder="닉네임"
                     value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    onChange={(e) => {
+                      const next = { ...form, name: e.target.value };
+                      setForm(next);
+                      saveCustomerInfo({
+                        name: next.name,
+                        phone: next.phone,
+                        address: next.address,
+                      });
+                    }}
                     className="w-full rounded-lg border border-[#d4af3724] bg-[#050505] p-2.5 text-sm text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
                   />
 
@@ -1325,15 +1467,30 @@ return groups.filter(
                     placeholder="전화번호 *"
                     value={form.phone}
                     onChange={(e) => {
-                      const value = e.target.value;
+                      const value = formatPhone(e.target.value);
+                      const next = { ...form, phone: value };
 
-                      setForm({ ...form, phone: value });
+                      setForm(next);
+                      saveCustomerInfo({
+                        name: next.name,
+                        phone: next.phone,
+                        address: next.address,
+                      });
                       setStampCustomer(null);
                       setUseStampReward(false);
-                      autoFillAddress(value);
+
+                      if (normalizePhone(value).length === 11) {
+                        autoFillAddress(value);
+                      }
                     }}
                     className="w-full rounded-lg border border-[#d4af3724] bg-[#050505] p-2.5 text-sm text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
                   />
+
+                  {form.phone && !isValidKoreanPhone(form.phone) && (
+                    <div className="rounded-lg border border-red-500/30 bg-red-950/40 p-2 text-xs font-bold text-red-300">
+                      010으로 시작하는 11자리 휴대폰번호를 입력해주세요.
+                    </div>
+                  )}
 
                   <button
                     onClick={checkStamp}
@@ -1393,10 +1550,12 @@ return groups.filter(
                     value={form.address}
                     onChange={(e) => {
                       const value = e.target.value;
+                      const next = { ...form, address: value };
 
                       setSelectedBaseAddress("");
                       setDetailAddress("");
-                      setForm({ ...form, address: value });
+                      setForm(next);
+                      saveCustomerInfo({ ...next, detailAddress: "" });
                       calculateDeliveryFee(value);
                     }}
                     className="w-full rounded-lg border border-[#d4af3724] bg-[#050505] p-2.5 text-sm text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
@@ -1438,7 +1597,13 @@ return groups.filter(
                       2km까지 무료, 2km 초과 시 100m당 100원 추가
                     </div>
 
-                    <div className="mt-2 text-xs font-bold text-green-400">
+                    <div
+                      className={`mt-2 text-xs font-bold ${
+                        deliveryDistance > MAX_DELIVERY_DISTANCE_KM
+                          ? "text-red-400"
+                          : "text-green-400"
+                      }`}
+                    >
                       {deliveryStatus}
                     </div>
 
@@ -1468,7 +1633,10 @@ return groups.filter(
                             <button
                               key={request}
                               type="button"
-                              onClick={() => setSelectedRequest(request)}
+                              onClick={() => {
+                                setSelectedRequest(request);
+                                setShowDeliveryRequests(false);
+                              }}
                               className={`rounded-lg p-2.5 text-left text-sm font-black ${
                                 selectedRequest === request
                                   ? "bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] text-black shadow-[0_0_22px_rgba(212,175,55,.28)]"
@@ -1506,7 +1674,10 @@ return groups.filter(
                             <button
                               key={method}
                               type="button"
-                              onClick={() => setPaymentMethod(method)}
+                              onClick={() => {
+                                setPaymentMethod(method);
+                                setShowPaymentMethods(false);
+                              }}
                               className={`rounded-lg p-2.5 text-left text-sm font-black ${
                                 paymentMethod === method
                                   ? "bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] text-black shadow-[0_0_22px_rgba(212,175,55,.28)]"
@@ -1560,9 +1731,16 @@ return groups.filter(
 
                   <button
                     onClick={submitOrder}
-                    className="w-full rounded-lg bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] p-3 text-sm font-black text-black shadow-lg shadow-[#d4af37]/20"
+                    disabled={deliveryDistance > MAX_DELIVERY_DISTANCE_KM}
+                    className={`w-full rounded-lg p-3 text-sm font-black shadow-lg ${
+                      deliveryDistance > MAX_DELIVERY_DISTANCE_KM
+                        ? "bg-zinc-800 text-zinc-500 shadow-none"
+                        : "bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] text-black shadow-[#d4af37]/20"
+                    }`}
                   >
-                    주문 접수하기
+                    {deliveryDistance > MAX_DELIVERY_DISTANCE_KM
+                      ? "배달 가능 거리 초과"
+                      : "주문 접수하기"}
                   </button>
                 </div>
               )}
