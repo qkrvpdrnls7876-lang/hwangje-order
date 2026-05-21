@@ -125,6 +125,19 @@ const [links, setLinks] = useState<GroupMenuLink[]>([]);
   );
   const [gettingLocation, setGettingLocation] = useState(false);
   const [submittingOrder, setSubmittingOrder] = useState(false);
+
+  const getDeviceId=()=>{
+    let id=localStorage.getItem("hwangje_device_id");
+    if(!id){
+      id="device-"+Date.now()+"-"+Math.random().toString(36).slice(2,10);
+      localStorage.setItem("hwangje_device_id",id);
+    }
+    return id;
+  };
+
+  const getDeviceInfo=()=>{
+    return navigator.userAgent;
+  };
   const [showAddressSearch, setShowAddressSearch] = useState(false);
   const [addressKeyword, setAddressKeyword] = useState("");
   const [addressResults, setAddressResults] = useState<any[]>([]);
@@ -1167,6 +1180,8 @@ return groups.filter(
           stamp_discount: finalStampDiscount,
           used_stamp_reward: useStampReward,
           stamp_processed: false,
+          device_id:getDeviceId(),
+          device_info:getDeviceInfo(),
         })
         .select("id")
         .single();
