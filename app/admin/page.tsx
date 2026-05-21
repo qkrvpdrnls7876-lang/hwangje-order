@@ -492,7 +492,27 @@ export default function AdminPage() {
     fetchOrders();
   };
 
-  const toggleOpen = (id: number) => {
+  
+  const deleteTestOrders = async () => {
+    const ok = confirm("테스트 주문 전부 삭제할까요?");
+    if (!ok) return;
+
+    const { error } = await supabase
+      .from("orders")
+      .delete()
+      .or("customer.ilike.%테스트%,customer.ilike.%test%,phone.eq.01012341234");
+
+    if (error) {
+      alert("삭제 실패: "+error.message);
+      return;
+    }
+
+    alert("테스트 주문 삭제 완료");
+    fetchOrders();
+  };
+
+
+const toggleOpen = (id: number) => {
     setOpenOrderIds((prev) =>
       prev.includes(id)
         ? prev.filter((orderId) => orderId !== id)
@@ -924,6 +944,13 @@ const getStatusColor = (status: string) => {
               className="rounded-xl bg-red-600 px-3 py-2 text-sm font-black"
             >
               OFF
+            </button>
+            
+            <button
+              onClick={deleteTestOrders}
+              className="rounded-xl bg-red-800 px-3 py-2 text-sm font-black"
+            >
+              🗑 테스트삭제
             </button>
           </div>
         </div>
