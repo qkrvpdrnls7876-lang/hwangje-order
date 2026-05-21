@@ -1,0 +1,25 @@
+{
+  "name": "황제 라이더",
+  "short_name": "황제라이더",
+  "description": "황제떡볶이 라이더 배달관리 시스템",
+  "start_url": "/rider",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#d4af37",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
