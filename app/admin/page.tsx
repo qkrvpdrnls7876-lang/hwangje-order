@@ -653,14 +653,49 @@ const showBrowserNotification = (order: Order) => {
 
   return (
     <main className="min-h-screen bg-[#050505] bg-[radial-gradient(circle_at_top,#3b2f0b_0%,#050505_35%)] p-4 text-white md:p-6">
-      <a
-  href="/admin/sales"
-  target="_blank"
-  rel="noopener noreferrer"
-  className="fixed right-5 top-5 z-50 rounded-2xl bg-yellow-400 px-6 py-4 text-2xl font-black text-black shadow-2xl"
->
-  📊 매출보기
-</a>
+      <div className="fixed right-4 top-4 z-50 hidden w-[210px] rounded-3xl border border-[#d4af3735] bg-black/85 p-3 shadow-[0_0_35px_rgba(212,175,55,.18)] backdrop-blur-xl xl:block">
+        <div className="mb-2 rounded-2xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] px-3 py-2 text-center text-sm font-black text-black">
+          황제 바로가기
+        </div>
+
+        <div className="grid gap-2">
+          <a
+            href="/admin/sales"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-2xl border border-[#d4af3728] bg-[#080808] px-3 py-3 text-sm font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.08)] transition hover:border-[#d4af37] hover:bg-[#17130a]"
+          >
+            📊 매출관리
+          </a>
+
+          <a
+            href="/admin/menu"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-2xl border border-[#d4af3728] bg-[#080808] px-3 py-3 text-sm font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.08)] transition hover:border-[#d4af37] hover:bg-[#17130a]"
+          >
+            🍜 메뉴수정
+          </a>
+
+          <a
+            href="/kitchen"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-2xl border border-[#d4af3728] bg-[#080808] px-3 py-3 text-sm font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.08)] transition hover:border-[#d4af37] hover:bg-[#17130a]"
+          >
+            👨‍🍳 주방화면
+          </a>
+
+          <a
+            href="/rider"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-2xl border border-[#d4af3728] bg-[#080808] px-3 py-3 text-sm font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.08)] transition hover:border-[#d4af37] hover:bg-[#17130a]"
+          >
+            🛵 라이더화면
+          </a>
+        </div>
+      </div>
 
       <audio ref={audioRef} preload="auto">
         <source src="/sounds/order.mp3" type="audio/mpeg" />
@@ -735,6 +770,44 @@ const showBrowserNotification = (order: Order) => {
 
               <div className="mt-3 inline-flex rounded-2xl border border-yellow-400/20 bg-black/60 px-4 py-2 text-lg font-black text-yellow-400">
                 진행주문 {activeOrderCount}건 · 자동 예상 {autoEstimatedTime}
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4 xl:hidden">
+                <a
+                  href="/admin/sales"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-2xl border border-[#d4af3735] bg-black/70 px-3 py-3 text-center text-sm font-black text-[#f4d56d]"
+                >
+                  📊 매출
+                </a>
+
+                <a
+                  href="/admin/menu"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-2xl border border-[#d4af3735] bg-black/70 px-3 py-3 text-center text-sm font-black text-[#f4d56d]"
+                >
+                  🍜 메뉴
+                </a>
+
+                <a
+                  href="/kitchen"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-2xl border border-[#d4af3735] bg-black/70 px-3 py-3 text-center text-sm font-black text-[#f4d56d]"
+                >
+                  👨‍🍳 주방
+                </a>
+
+                <a
+                  href="/rider"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-2xl border border-[#d4af3735] bg-black/70 px-3 py-3 text-center text-sm font-black text-[#f4d56d]"
+                >
+                  🛵 라이더
+                </a>
               </div>
             </div>
   
