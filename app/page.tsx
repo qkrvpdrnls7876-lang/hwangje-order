@@ -90,7 +90,7 @@ export default function Home() {
   const orderFormRef = useRef<HTMLDivElement | null>(null);
   const categoryRefs = useRef<Record<string, HTMLElement | null>>({});
 
-  const bankInfo = "전북은행 000-0000-0000 박여진";
+  const bankInfo = "전북은행 1021-02-6973516 박여진";
   const STORE_ADDRESS = "전북 전주시 완산구 효자천변2길 12-6 105호";
   const MAX_DELIVERY_DISTANCE_KM = 8;
   const SAVED_CUSTOMER_KEY = "hwangje_saved_customer";
@@ -316,7 +316,7 @@ if (linksResult.error)
 
   const getStampDiscount = (stampCount: number) => {
     if (stampCount < 5) return 0;
-    return stampCount * 600;
+    return stampCount * 500;
   };
 
   const copyBankInfo = async () => {
@@ -1584,8 +1584,29 @@ return groups.filter(
 
                   {stampCustomer && (
                     <div className="rounded-xl border border-[#d4af3728] bg-[#080808] p-3">
-                      <div className="text-xs font-black text-[#f4d56d] md:text-sm">
-                        현재 스탬프 {stampCustomer.stamp_count}개
+                      <div className="text-sm font-black text-[#f4d56d]">
+                        황제 단골 고객님 환영합니다
+                      </div>
+
+                      <div className="mt-2 text-sm font-black text-white">
+                        🔥 현재 {stampCustomer.total_orders}번째 주문
+                      </div>
+
+                      <div className="mt-2 text-sm font-black text-green-400">
+                        🎟 보유 스탬프 : {stampCustomer.stamp_count}개
+                      </div>
+
+                      <div className="mt-2 text-xs text-zinc-400">
+                        💰 스탬프 1개 = 500원 할인
+                      </div>
+
+                      <div className="mt-1 text-xs text-zinc-400">
+                        🎁 5개부터 사용 가능
+                      </div>
+
+                      <div className="mt-2 text-sm font-black text-yellow-400">
+                        💵 사용 가능 할인 :
+                        {availableStampDiscount.toLocaleString()}원
                       </div>
 
                       {availableStampDiscount > 0 ? (
@@ -1594,7 +1615,7 @@ return groups.filter(
                           className={`mt-2.5 w-full rounded-lg p-2.5 text-sm font-black ${
                             useStampReward
                               ? "bg-green-600"
-                              : "bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] text-black shadow-[0_0_22px_rgba(212,175,55,.28)]"
+                              : "bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] text-black"
                           }`}
                         >
                           {useStampReward
