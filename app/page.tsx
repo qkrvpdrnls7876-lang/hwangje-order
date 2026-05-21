@@ -1181,6 +1181,41 @@ return groups.filter(
         return;
       }
 
+      const { data: stampData } = await supabase
+        .from("stamp_customers")
+        .select("*")
+        .eq("phone", phone)
+        .maybeSingle();
+
+      if (!stampData) {
+        await supabase
+          .from("stamp_customers")
+          .insert({
+            phone,
+            stamp_count: 1,
+            total_orders: 1,
+          });
+      } else {
+        let nextStamp =
+          Number(stampData.stamp_count || 0) + 1;
+
+        if (useStampReward) {
+          nextStamp = Math.max(
+            nextStamp - Math.floor(finalStampDiscount / 500),
+            0
+          );
+        }
+
+        await supabase
+          .from("stamp_customers")
+          .update({
+            stamp_count: nextStamp,
+            total_orders:
+              Number(stampData.total_orders || 0) + 1,
+          })
+          .eq("phone", phone);
+      }
+
       saveCustomerInfo({
         phone: formatPhone(form.phone),
         address: finalAddress,
