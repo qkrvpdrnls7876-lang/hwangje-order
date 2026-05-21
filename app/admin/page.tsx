@@ -20,6 +20,9 @@ type Order = {
   payment_method: string | null;
   delivery_fee: number | null;
   delivery_distance_km: number | null;
+
+  customer_order_count?: number;
+  customer_type?: "new" | "existing" | "unknown";
 };
 
 type MenuOptionLine = {
@@ -41,6 +44,12 @@ type StampCustomer = {
   total_orders: number;
 };
 
+type Customer = {
+  phone: string;
+  name: string | null;
+  order_count: number | null;
+};
+
 export default function AdminPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [newOrderAlert, setNewOrderAlert] = useState(false);
@@ -56,6 +65,8 @@ export default function AdminPage() {
 
   const estimatedTimes = ["20분", "30분", "40분", "50분", "60분", "80분"];
 
+  const cleanPhone = (phone: string) => phone.replace(/[^0-9]/g, "");
+
   const payableOrders = orders.filter((order) => order.status !== "주문취소");
   const todaySales = payableOrders.reduce((sum, order) => sum + order.total, 0);
   const waitingCount = orders.filter((order) => order.status === "접수대기").length;
@@ -63,14 +74,17 @@ export default function AdminPage() {
   const cookingCount = orders.filter((order) => order.status === "조리중").length;
   const deliveryCount = orders.filter((order) => order.status === "배달중").length;
   const transferCount = orders.filter(
-    (order) => order.payment_method === "계좌이체" && order.status !== "완료" && order.status !== "주문취소"
+    (order) =>
+      order.payment_method === "계좌이체" &&
+      order.status !== "완료" &&
+      order.status !== "주문취소"
   ).length;
 
   const activeOrderCount = orders.filter(
     (order) =>
       order.status === "접수대기" ||
       order.status === "접수완료" ||
-      order.status === "조리중",
+      order.status === "조리중"
   ).length;
 
   const getAutoEstimatedTime = (count: number) => {
@@ -83,20 +97,17 @@ export default function AdminPage() {
 
   const autoEstimatedTime = getAutoEstimatedTime(activeOrderCount);
 
-const getTodayOrderNumber = (orderId: number) => {
-  const sortedOrders = [...orders]
-    .sort(
+  const getTodayOrderNumber = (orderId: number) => {
+    const sortedOrders = [...orders].sort(
       (a, b) =>
         new Date(a.created_at).getTime() -
         new Date(b.created_at).getTime()
     );
 
-  const index = sortedOrders.findIndex(
-    (order) => order.id === orderId
-  );
+    const index = sortedOrders.findIndex((order) => order.id === orderId);
 
-  return index >= 0 ? index + 1 : orderId;
-};
+    return index >= 0 ? index + 1 : orderId;
+  };
 
   const isOrderLocked = (order: Order) => {
     return order.status === "완료" || order.status === "주문취소";
@@ -105,20 +116,19 @@ const getTodayOrderNumber = (orderId: number) => {
   const canChangeStatus = (order: Order, nextStatus: string) => {
     if (isOrderLocked(order)) return false;
 
-    if (nextStatus === "접수완료") {
-      return order.status === "접수대기";
-    }
-
-    if (nextStatus === "주문취소") {
-      return order.status === "접수대기";
-    }
+    if (nextStatus === "접수완료") return order.status === "접수대기";
+    if (nextStatus === "주문취소") return order.status === "접수대기";
 
     if (nextStatus === "조리중") {
       return order.status === "접수대기" || order.status === "접수완료";
     }
 
     if (nextStatus === "배달중") {
-      return order.status === "접수대기" || order.status === "접수완료" || order.status === "조리중";
+      return (
+        order.status === "접수대기" ||
+        order.status === "접수완료" ||
+        order.status === "조리중"
+      );
     }
 
     if (nextStatus === "완료") {
@@ -169,18 +179,18 @@ const getTodayOrderNumber = (orderId: number) => {
   };
 
   const speakOrder = (order: Order) => {
-  if (!("speechSynthesis" in window)) return;
+    if (!("speechSynthesis" in window)) return;
 
-  const msg = new SpeechSynthesisUtterance(
-    `신규 주문이 들어왔습니다. ${order.customer || "고객"}님 ${order.total.toLocaleString()}원 주문`
-  );
-  msg.lang = "ko-KR";
-  msg.rate = 1;
-  speechSynthesis.cancel();
-  speechSynthesis.speak(msg);
-};
+    const msg = new SpeechSynthesisUtterance(
+      `신규 주문이 들어왔습니다. ${order.customer || "고객"}님 ${order.total.toLocaleString()}원 주문`
+    );
+    msg.lang = "ko-KR";
+    msg.rate = 1;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(msg);
+  };
 
-const showBrowserNotification = (order: Order) => {
+  const showBrowserNotification = (order: Order) => {
     if (!("Notification" in window)) return;
     if (Notification.permission !== "granted") return;
 
@@ -228,10 +238,8 @@ const showBrowserNotification = (order: Order) => {
     const now = new Date();
 
     if (now.getHours() < 4) {
-  now.setDate(now.getDate() - 1);
-}
-
-
+      now.setDate(now.getDate() - 1);
+    }
 
     const startDate = new Date(
       now.getFullYear(),
@@ -253,17 +261,54 @@ const showBrowserNotification = (order: Order) => {
       return;
     }
 
-    const newData = data || [];
+    const rawOrders = (data || []) as Order[];
+
+    const phoneList = Array.from(
+      new Set(rawOrders.map((order) => cleanPhone(order.phone)).filter(Boolean))
+    );
+
+    let customerMap = new Map<string, Customer>();
+
+    if (phoneList.length > 0) {
+      const { data: customersData, error: customersError } = await supabase
+        .from("customers")
+        .select("phone,name,order_count")
+        .in("phone", phoneList);
+
+      if (!customersError && customersData) {
+        customerMap = new Map(
+          (customersData as Customer[]).map((customer) => [
+            cleanPhone(customer.phone),
+            customer,
+          ])
+        );
+      }
+    }
+
+    const newData: Order[] = rawOrders.map((order) => {
+      const phone = cleanPhone(order.phone);
+      const customer = customerMap.get(phone);
+      const orderCount = Number(customer?.order_count || 0);
+
+      return {
+        ...order,
+        customer_order_count: orderCount,
+        customer_type:
+          orderCount <= 0 ? "unknown" : orderCount === 1 ? "new" : "existing",
+      };
+    });
+
     const activeCount = newData.filter(
       (order) =>
         order.status === "접수대기" ||
         order.status === "접수완료" ||
-        order.status === "조리중",
+        order.status === "조리중"
     ).length;
+
     const nextAutoEstimatedTime = getAutoEstimatedTime(activeCount);
 
     const ordersNeedEstimatedTime = newData.filter(
-      (order) => order.status === "접수대기" && !order.estimated_time,
+      (order) => order.status === "접수대기" && !order.estimated_time
     );
 
     if (ordersNeedEstimatedTime.length > 0) {
@@ -272,8 +317,8 @@ const showBrowserNotification = (order: Order) => {
           supabase
             .from("orders")
             .update({ estimated_time: nextAutoEstimatedTime })
-            .eq("id", order.id),
-        ),
+            .eq("id", order.id)
+        )
       );
 
       for (const order of newData) {
@@ -319,7 +364,7 @@ const showBrowserNotification = (order: Order) => {
   const processStamp = async (order: Order) => {
     if (order.stamp_processed) return;
 
-    const phone = order.phone.replace(/[^0-9]/g, "");
+    const phone = cleanPhone(order.phone);
 
     if (!phone) return;
 
@@ -510,16 +555,12 @@ const showBrowserNotification = (order: Order) => {
                       option.price > 0
                         ? ` +${option.price.toLocaleString()}`
                         : ""
-                    }`,
+                    }`
                 )
                 .join("\n")
             : "";
 
-        return [
-          `${item.name} x${item.qty}`,
-          options,
-          `  ${item.price}`,
-        ]
+        return [`${item.name} x${item.qty}`, options, `  ${item.price}`]
           .filter(Boolean)
           .join("\n");
       })
@@ -538,8 +579,7 @@ const showBrowserNotification = (order: Order) => {
     const memo = order.memo?.trim() ? order.memo.trim() : "없음";
 
     return [
-    
-     `오늘주문 #${todayNo}`,
+      `오늘주문 #${todayNo}`,
       `시간 ${time}`,
       divider,
       menuText,
@@ -701,62 +741,82 @@ const showBrowserNotification = (order: Order) => {
         <source src="/sounds/order.mp3" type="audio/mpeg" />
       </audio>
 
-      
-
       {popupOrder && (
-      <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur">
-        <div className="w-[92%] max-w-lg rounded-3xl border border-[#d4af37] bg-gradient-to-b from-[#17130a] to-black p-6 shadow-[0_0_50px_rgba(212,175,55,.35)]">
-          <div className="mb-3 text-center text-4xl font-black text-[#f4d56d]">
-            🔔 신규 주문
-          </div>
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur">
+          <div className="w-[92%] max-w-lg rounded-3xl border border-[#d4af37] bg-gradient-to-b from-[#17130a] to-black p-6 shadow-[0_0_50px_rgba(212,175,55,.35)]">
+            <div className="mb-3 text-center text-4xl font-black text-[#f4d56d]">
+              🔔 신규 주문
+            </div>
 
-          <div className="mb-4 text-center text-sm font-bold text-zinc-400">
-            포스 원격용 · 접수와 동시에 빌지를 출력할 수 있습니다
-          </div>
+            <div className="mb-4 text-center text-sm font-bold text-zinc-400">
+              포스 원격용 · 접수와 동시에 빌지를 출력할 수 있습니다
+            </div>
 
-          <div className="rounded-2xl bg-black/50 p-4">
-            <div className="text-zinc-400">오늘주문 #{getTodayOrderNumber(popupOrder.id)}</div>
-            <div className="mt-2 text-3xl font-black">{popupOrder.customer}</div>
-            <div className="mt-2 text-xl text-[#f4d56d]">{popupOrder.total.toLocaleString()}원</div>
-            <div className="mt-2 text-sm text-zinc-300">{menuLines(popupOrder.menu)[0]?.name || ""}</div>
-          </div>
+            <div className="rounded-2xl bg-black/50 p-4">
+              <div className="text-zinc-400">
+                오늘주문 #{getTodayOrderNumber(popupOrder.id)}
+              </div>
+              <div className="mt-2 text-3xl font-black">{popupOrder.customer}</div>
+              <div className="mt-2 text-xl text-[#f4d56d]">
+                {popupOrder.total.toLocaleString()}원
+              </div>
+              <div className="mt-2 text-sm text-zinc-300">
+                {menuLines(popupOrder.menu)[0]?.name || ""}
+              </div>
 
-          <div className="mt-5 grid grid-cols-3 gap-3">
-            <button
-              onClick={() => {
-                printReceipt(popupOrder);
-                changeStatus(popupOrder, "접수완료");
-                setPopupOrder(null);
-              }}
-              className="rounded-2xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] py-4 text-lg font-black text-black shadow-[0_0_25px_rgba(212,175,55,.35)]"
-            >
-              접수+빌지
-            </button>
+              <div className="mt-3 rounded-xl border border-yellow-400/30 bg-black/70 p-3 text-sm font-black">
+                {popupOrder.customer_type === "new" ? (
+                  <span className="text-green-400">
+                    🆕 첫 주문 고객 · 1번째 주문
+                  </span>
+                ) : popupOrder.customer_type === "existing" ? (
+                  <span className="text-yellow-400">
+                    ⭐ 기존 고객 · 🔥 {popupOrder.customer_order_count}번째 주문
+                  </span>
+                ) : (
+                  <span className="text-zinc-400">
+                    고객 주문횟수 정보 없음
+                  </span>
+                )}
+              </div>
+            </div>
 
-            <button
-              onClick={() => {
-                const ok = confirm("주문 취소하시겠습니까?");
-                if (!ok) return;
-                changeStatus(popupOrder, "주문취소");
-                setPopupOrder(null);
-              }}
-              className="rounded-2xl bg-red-600 py-4 text-lg font-black text-white"
-            >
-              취소
-            </button>
+            <div className="mt-5 grid grid-cols-3 gap-3">
+              <button
+                onClick={() => {
+                  printReceipt(popupOrder);
+                  changeStatus(popupOrder, "접수완료");
+                  setPopupOrder(null);
+                }}
+                className="rounded-2xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] py-4 text-lg font-black text-black shadow-[0_0_25px_rgba(212,175,55,.35)]"
+              >
+                접수+빌지
+              </button>
 
-            <button
-              onClick={() => setPopupOrder(null)}
-              className="rounded-2xl bg-zinc-700 py-4 text-lg font-black"
-            >
-              닫기
-            </button>
+              <button
+                onClick={() => {
+                  const ok = confirm("주문 취소하시겠습니까?");
+                  if (!ok) return;
+                  changeStatus(popupOrder, "주문취소");
+                  setPopupOrder(null);
+                }}
+                className="rounded-2xl bg-red-600 py-4 text-lg font-black text-white"
+              >
+                취소
+              </button>
+
+              <button
+                onClick={() => setPopupOrder(null)}
+                className="rounded-2xl bg-zinc-700 py-4 text-lg font-black"
+              >
+                닫기
+              </button>
+            </div>
           </div>
         </div>
-      </div>
       )}
 
-<div className="mx-auto max-w-[1600px]">
+      <div className="mx-auto max-w-[1600px]">
         <div className="mb-6 rounded-3xl bg-zinc-900 p-6">
           <div className="flex items-center justify-between gap-6">
             <div>
@@ -810,45 +870,39 @@ const showBrowserNotification = (order: Order) => {
                 </a>
               </div>
             </div>
-  
           </div>
-        
 
-         <div className="mt-4 flex flex-wrap items-center gap-2">
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button
+              onClick={enableSound}
+              className={`rounded-xl px-3 py-2 text-sm font-black transition ${
+                soundEnabled ? "bg-green-600 text-white" : "bg-yellow-400 text-black"
+              }`}
+            >
+              {soundEnabled ? "🔊 ON" : "🔊 알림"}
+            </button>
 
-  <button
-    onClick={enableSound}
-    className={`rounded-xl px-3 py-2 text-sm font-black transition ${
-      soundEnabled
-        ? "bg-green-600 text-white"
-        : "bg-yellow-400 text-black"
-    }`}
-  >
-    {soundEnabled ? "🔊 ON" : "🔊 알림"}
-  </button>
+            <button
+              onClick={requestNotification}
+              className="rounded-xl bg-purple-600 px-3 py-2 text-sm font-black"
+            >
+              🔔 푸시
+            </button>
 
-  <button
-    onClick={requestNotification}
-    className="rounded-xl bg-purple-600 px-3 py-2 text-sm font-black"
-  >
-    🔔 푸시
-  </button>
+            <button
+              onClick={playAlarm}
+              className="rounded-xl bg-zinc-700 px-3 py-2 text-sm font-black"
+            >
+              테스트
+            </button>
 
-  <button
-    onClick={playAlarm}
-    className="rounded-xl bg-zinc-700 px-3 py-2 text-sm font-black"
-  >
-    테스트
-  </button>
-
-  <button
-    onClick={stopAlarm}
-    className="rounded-xl bg-red-600 px-3 py-2 text-sm font-black"
-  >
-    OFF
-  </button>
-
-</div>
+            <button
+              onClick={stopAlarm}
+              className="rounded-xl bg-red-600 px-3 py-2 text-sm font-black"
+            >
+              OFF
+            </button>
+          </div>
         </div>
 
         <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-6">
@@ -913,13 +967,27 @@ const showBrowserNotification = (order: Order) => {
                 <div className="bg-zinc-900 p-5">
                   <div className="mb-3 flex justify-between gap-3">
                     <div>
-                    <div className="text-sm font-bold text-zinc-500">
-  오늘주문 #{getTodayOrderNumber(order.id)} · 🕒{" "}
-  {formatOrderTime(order.created_at)}
-</div>
+                      <div className="text-sm font-bold text-zinc-500">
+                        오늘주문 #{getTodayOrderNumber(order.id)} · 🕒{" "}
+                        {formatOrderTime(order.created_at)}
+                      </div>
 
-                      <div className="text-2xl font-black">
-                        {order.customer}
+                      <div className="text-2xl font-black">{order.customer}</div>
+
+                      <div className="mt-2 inline-flex rounded-xl border border-yellow-400/30 bg-black/70 px-3 py-2 text-sm font-black">
+                        {order.customer_type === "new" ? (
+                          <span className="text-green-400">
+                            🆕 첫 주문 고객 · 1번째 주문
+                          </span>
+                        ) : order.customer_type === "existing" ? (
+                          <span className="text-yellow-400">
+                            ⭐ 기존 고객 · 🔥 {order.customer_order_count}번째 주문
+                          </span>
+                        ) : (
+                          <span className="text-zinc-400">
+                            고객 주문횟수 정보 없음
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -959,7 +1027,9 @@ const showBrowserNotification = (order: Order) => {
 
                   <div className="mt-3 rounded-xl border border-zinc-800 bg-black/60 p-3">
                     <div className="mb-2 flex items-center justify-between gap-3">
-                      <div className="text-sm font-black text-yellow-400">메뉴상세</div>
+                      <div className="text-sm font-black text-yellow-400">
+                        메뉴상세
+                      </div>
                       <button
                         onClick={() => toggleOpen(order.id)}
                         className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-black"
@@ -988,7 +1058,9 @@ const showBrowserNotification = (order: Order) => {
                                   key={optionIndex}
                                   className="rounded-md bg-black/80 px-2 py-1 text-[12px] font-bold leading-tight text-zinc-300"
                                 >
-                                  <span className="text-zinc-500">{option.groupName}: </span>
+                                  <span className="text-zinc-500">
+                                    {option.groupName}:{" "}
+                                  </span>
                                   <span>{option.optionName}</span>
                                   {option.price > 0 && (
                                     <span className="text-yellow-400">
@@ -1017,14 +1089,15 @@ const showBrowserNotification = (order: Order) => {
                         {order.total.toLocaleString()}원
                       </div>
 
-                      {order.delivery_fee !== null && order.delivery_fee !== undefined && (
-                        <div className="mt-1 text-sm font-bold text-zinc-400">
-                          배달비 {order.delivery_fee.toLocaleString()}원
-                          {order.delivery_distance_km !== null &&
-                            order.delivery_distance_km !== undefined &&
-                            ` (${Number(order.delivery_distance_km).toFixed(1)}km)`}
-                        </div>
-                      )}
+                      {order.delivery_fee !== null &&
+                        order.delivery_fee !== undefined && (
+                          <div className="mt-1 text-sm font-bold text-zinc-400">
+                            배달비 {order.delivery_fee.toLocaleString()}원
+                            {order.delivery_distance_km !== null &&
+                              order.delivery_distance_km !== undefined &&
+                              ` (${Number(order.delivery_distance_km).toFixed(1)}km)`}
+                          </div>
+                        )}
 
                       {order.stamp_discount && order.stamp_discount > 0 && (
                         <div className="mt-1 text-sm font-bold text-green-400">
@@ -1073,9 +1146,7 @@ const showBrowserNotification = (order: Order) => {
                         key={time}
                         onClick={() => changeEstimatedTime(order.id, time)}
                         className={`rounded-xl py-3 font-bold ${
-                          order.estimated_time === time
-                            ? "bg-green-600"
-                            : "bg-zinc-700"
+                          order.estimated_time === time ? "bg-green-600" : "bg-zinc-700"
                         }`}
                       >
                         {time}
