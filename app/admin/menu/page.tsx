@@ -66,6 +66,7 @@ export default function AdminMenuPage() {
   });
 
   const [selectedMenuIds, setSelectedMenuIds] = useState<number[]>([]);
+  const [openMenuOptionIds, setOpenMenuOptionIds] = useState<number[]>([]);
 
   const [itemForm, setItemForm] = useState({
     group_id: "",
@@ -597,6 +598,14 @@ export default function AdminMenuPage() {
     fetchAll();
   };
 
+  const toggleMenuOptionOpen = (menuId: number) => {
+    setOpenMenuOptionIds((prev) =>
+      prev.includes(menuId)
+        ? prev.filter((id) => id !== menuId)
+        : [...prev, menuId],
+    );
+  };
+
   const getGroupsByMenuId = (menuId: number) => {
     return groups.filter((group) =>
       links.some(
@@ -632,7 +641,8 @@ export default function AdminMenuPage() {
     "w-full rounded-[10px] border border-zinc-800 bg-[#070707] px-3 py-3 text-sm font-bold text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-[#d4af37]/70";
   const labelClass =
     "mb-2 block text-[11px] font-black uppercase tracking-[0.16em] text-zinc-500";
-
+const compactInputClass =
+  "w-full rounded-[8px] border border-zinc-800 bg-[#050505] px-2.5 py-2 text-xs font-bold text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-[#d4af37]/70";
   return (
     <main className="min-h-screen overflow-hidden bg-[#070707] pt-9 text-zinc-100">
       <div className="fixed left-0 right-0 top-0 z-[1000] flex h-9 items-center justify-between border-b border-[#d4af3720] bg-[#080808]/95 px-3 text-xs text-zinc-400 backdrop-blur-xl [-webkit-app-region:drag]">
@@ -1224,108 +1234,151 @@ export default function AdminMenuPage() {
                   </div>
                 )}
 
-                <div className="space-y-3">
-                  {menus.map((menu) => (
-                    <div
-                      key={menu.id}
-                      className="rounded-[12px] border border-zinc-800 bg-[#070707] p-4"
-                    >
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <div className="text-xs font-bold text-zinc-500">
-                          MENU ID {menu.id}
-                        </div>
-                        <div
-                          className={`rounded-md border px-2 py-1 text-xs font-black ${menu.is_soldout ? "border-red-500/40 bg-red-950/40 text-red-300" : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"}`}
-                        >
-                          {menu.is_soldout ? "품절" : "판매중"}
-                        </div>
-                      </div>
+                <div className="space-y-2">
+                  {menus.map((menu) => {
+                    const menuGroups = getGroupsByMenuId(menu.id);
+                    const optionOpen = openMenuOptionIds.includes(menu.id);
 
-                      <div className="grid gap-2">
-                        <input
-                          defaultValue={menu.name}
-                          onBlur={(e) =>
-                            updateMenu(menu.id, "name", e.target.value)
-                          }
-                          className={`${inputClass} text-lg`}
-                        />
-                        <input
-                          defaultValue={menu.price}
-                          onBlur={(e) =>
-                            updateMenu(menu.id, "price", e.target.value)
-                          }
-                          className={`${inputClass} text-[#d4af37]`}
-                        />
-                        <input
-                          defaultValue={menu.description || ""}
-                          onBlur={(e) =>
-                            updateMenu(menu.id, "description", e.target.value)
-                          }
-                          className={inputClass}
-                        />
-                        <input
-                          defaultValue={menu.category || ""}
-                          onBlur={(e) =>
-                            updateMenu(menu.id, "category", e.target.value)
-                          }
-                          className={inputClass}
-                        />
-                      </div>
+                    return (
+                      <div
+                        key={menu.id}
+                        className="rounded-[10px] border border-zinc-800 bg-[#070707] p-3"
+                      >
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="text-[10px] font-bold text-zinc-600">
+                              MENU ID {menu.id}
+                            </div>
+                            <div className="mt-0.5 truncate text-sm font-black text-zinc-100">
+                              {menu.name || "메뉴명 없음"}
+                            </div>
+                          </div>
 
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() =>
-                            toggleMenuSoldout(menu.id, menu.is_soldout)
-                          }
-                          className="rounded-[9px] border border-red-500/35 bg-red-950/30 px-3 py-2 text-xs font-black text-red-300 transition hover:bg-red-900/40"
-                        >
-                          {menu.is_soldout ? "판매중 변경" : "품절 처리"}
-                        </button>
-                        <button
-                          onClick={() => deleteMenu(menu.id)}
-                          className="rounded-[9px] border border-zinc-700 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-300 transition hover:border-red-500/40 hover:text-red-300"
-                        >
-                          메뉴 삭제
-                        </button>
-                      </div>
-
-                      <div className="mt-3 rounded-[10px] border border-zinc-800 bg-[#101010] p-3">
-                        <div className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
-                          연결된 옵션
+                          <div
+                            className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-black ${
+                              menu.is_soldout
+                                ? "border-red-500/40 bg-red-950/40 text-red-300"
+                                : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                            }`}
+                          >
+                            {menu.is_soldout ? "품절" : "판매중"}
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          {getGroupsByMenuId(menu.id).map((group) => (
-                            <div
-                              key={group.id}
-                              className="rounded-[9px] border border-zinc-800 bg-[#070707] p-3"
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <div>
-                                  <div className="font-black text-zinc-100">
-                                    {group.name}
-                                  </div>
-                                  <div className="mt-1 text-xs text-zinc-500">
-                                    {group.type === "single"
-                                      ? "하나만 선택"
-                                      : "여러 개 선택"}{" "}
-                                    / {group.required ? "필수" : "선택"}
-                                  </div>
-                                </div>
-                                <div className="text-xs font-black text-[#d4af37]">
-                                  {getItemsByGroupId(group.id).length}개
-                                </div>
+
+                        <div className="grid gap-2 md:grid-cols-[1fr_110px]">
+                          <input
+                            defaultValue={menu.name}
+                            onBlur={(e) =>
+                              updateMenu(menu.id, "name", e.target.value)
+                            }
+                            className={compactInputClass}
+                          />
+
+                          <input
+                            defaultValue={menu.price}
+                            onBlur={(e) =>
+                              updateMenu(menu.id, "price", e.target.value)
+                            }
+                            className={`${compactInputClass} text-[#d4af37]`}
+                          />
+
+                          <input
+                            defaultValue={menu.description || ""}
+                            onBlur={(e) =>
+                              updateMenu(menu.id, "description", e.target.value)
+                            }
+                            className={`${compactInputClass} md:col-span-2`}
+                          />
+
+                          <input
+                            defaultValue={menu.category || ""}
+                            onBlur={(e) =>
+                              updateMenu(menu.id, "category", e.target.value)
+                            }
+                            className={`${compactInputClass} md:col-span-2`}
+                          />
+                        </div>
+
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() =>
+                              toggleMenuSoldout(menu.id, menu.is_soldout)
+                            }
+                            className="rounded-[8px] border border-red-500/35 bg-red-950/30 px-2.5 py-2 text-[11px] font-black text-red-300 transition hover:bg-red-900/40"
+                          >
+                            {menu.is_soldout ? "판매중 변경" : "품절 처리"}
+                          </button>
+
+                          <button
+                            onClick={() => deleteMenu(menu.id)}
+                            className="rounded-[8px] border border-zinc-700 bg-[#111111] px-2.5 py-2 text-[11px] font-black text-zinc-300 transition hover:border-red-500/40 hover:text-red-300"
+                          >
+                            메뉴 삭제
+                          </button>
+                        </div>
+
+                        <div className="mt-2 rounded-[9px] border border-zinc-800 bg-[#101010]">
+                          <button
+                            type="button"
+                            onClick={() => toggleMenuOptionOpen(menu.id)}
+                            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left"
+                          >
+                            <div>
+                              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                                연결된 옵션
+                              </div>
+                              <div className="mt-0.5 text-xs font-bold text-zinc-400">
+                                {menuGroups.length > 0
+                                  ? `${menuGroups.length}개 옵션그룹 연결됨`
+                                  : "연결된 옵션그룹 없음"}
                               </div>
                             </div>
-                          ))}
-                          {getGroupsByMenuId(menu.id).length === 0 && (
-                            <div className="text-sm font-bold text-zinc-500">
-                              연결된 옵션그룹이 없습니다.
+
+                            <div className="shrink-0 rounded-md border border-[#d4af37]/30 bg-[#d4af37]/10 px-2 py-1 text-[11px] font-black text-[#d4af37]">
+                              {optionOpen ? "접기 ▲" : "열기 ▼"}
+                            </div>
+                          </button>
+
+                          {optionOpen && (
+                            <div className="border-t border-zinc-800 p-3">
+                              <div className="space-y-2">
+                                {menuGroups.map((group) => (
+                                  <div
+                                    key={group.id}
+                                    className="rounded-[8px] border border-zinc-800 bg-[#070707] p-2.5"
+                                  >
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <div className="truncate text-sm font-black text-zinc-100">
+                                          {group.name}
+                                        </div>
+                                        <div className="mt-1 text-[11px] text-zinc-500">
+                                          {group.type === "single"
+                                            ? "하나만 선택"
+                                            : "여러 개 선택"}{" "}
+                                          / {group.required ? "필수" : "선택"}
+                                        </div>
+                                      </div>
+
+                                      <div className="shrink-0 text-xs font-black text-[#d4af37]">
+                                        {getItemsByGroupId(group.id).length}개
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {menuGroups.length === 0 && (
+                                  <div className="rounded-[8px] border border-zinc-800 bg-[#070707] p-3 text-xs font-bold text-zinc-500">
+                                    연결된 옵션그룹이 없습니다.
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             </div>
