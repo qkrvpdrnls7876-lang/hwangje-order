@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type Order = {
@@ -31,6 +32,8 @@ type MenuLine = {
 };
 
 export default function AdminSalesPage() {
+  const router = useRouter();
+
   const todayText = new Date().toISOString().slice(0, 10);
   const currentMonthText = todayText.slice(0, 7);
 
@@ -40,6 +43,16 @@ export default function AdminSalesPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [openOrderIds, setOpenOrderIds] = useState<number[]>([]);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+
+  const goBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+
+    router.push("/admin");
+  };
 
   const getBusinessRange = (dateText: string) => {
     const start = new Date(`${dateText}T03:00:00`);
@@ -80,7 +93,19 @@ export default function AdminSalesPage() {
       return;
     }
 
-    setOrders(data || []);
+    const nextOrders = (data || []) as Order[];
+    setOrders(nextOrders);
+
+    if (nextOrders.length > 0) {
+      setSelectedOrderId((prev) =>
+        prev && nextOrders.some((order) => order.id === prev)
+          ? prev
+          : nextOrders[0].id,
+      );
+    } else {
+      setSelectedOrderId(null);
+    }
+
     setLoading(false);
   };
 
@@ -116,6 +141,9 @@ export default function AdminSalesPage() {
       .filter((order) => !order.payment_method)
       .reduce((sum, order) => sum + (order.total || 0), 0);
 
+    const averageOrder =
+      orderCount > 0 ? Math.round(totalSales / orderCount) : 0;
+
     return {
       orderCount,
       totalSales,
@@ -125,6 +153,7 @@ export default function AdminSalesPage() {
       cardTotal,
       transferTotal,
       unknownTotal,
+      averageOrder,
     };
   }, [orders]);
 
@@ -184,33 +213,211 @@ export default function AdminSalesPage() {
     });
   };
 
-  return (
-    <main className="min-h-screen bg-black p-4 text-white md:p-6">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-5 rounded-2xl border border-yellow-400/20 bg-zinc-950 p-4 shadow-2xl md:rounded-3xl md:p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <div className="text-sm font-bold text-zinc-400">황제 관리자</div>
-              <h1 className="mt-1 text-3xl font-black text-yellow-400 md:text-4xl">
-                매출보기
-              </h1>
-              <p className="mt-2 text-sm text-zinc-400">
-                일매출/월매출 선택 가능 · 새벽 3시 기준 영업일 / 완료 주문만 집계
-              </p>
-            </div>
+  const formatDateTime = (dateText: string) => {
+    const date = new Date(dateText);
 
-        
+    return date.toLocaleString("ko-KR", {
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const selectedOrder =
+    orders.find((order) => order.id === selectedOrderId) || orders[0] || null;
+
+  const selectedLines = selectedOrder ? menuLines(selectedOrder.menu) : [];
+
+  const selectedMenuTotal = selectedLines.reduce((sum, line) => {
+    return sum + Number(line.total || 0);
+  }, 0);
+
+  const paymentCards = [
+    {
+      label: "현금",
+      value: summary.cashTotal,
+      accent: "text-zinc-100",
+    },
+    {
+      label: "카드",
+      value: summary.cardTotal,
+      accent: "text-zinc-100",
+    },
+    {
+      label: "계좌이체",
+      value: summary.transferTotal,
+      accent: "text-[#f0d98a]",
+    },
+    {
+      label: "미설정",
+      value: summary.unknownTotal,
+      accent: "text-zinc-500",
+    },
+  ];
+
+  return (
+    <main className="min-h-screen overflow-hidden bg-[#070707] pt-9 text-zinc-100">
+      <div className="fixed left-0 right-0 top-0 z-[1000] flex h-9 items-center justify-between border-b border-[#d4af3720] bg-[#080808]/95 px-3 text-xs text-zinc-400 backdrop-blur-xl [-webkit-app-region:drag]">
+        <div className="flex items-center gap-2 font-black tracking-[-0.03em] text-[#d4af37]">
+          <span className="h-2 w-2 rounded-full bg-[#d4af37]" />
+          황제POS · 매출관리
+        </div>
+
+        <div className="flex items-center gap-1 [-webkit-app-region:no-drag]">
+          <button
+            type="button"
+            onClick={() => (window as any).hwangjePOS?.minimizeWindow?.()}
+            className="flex h-7 w-9 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-white"
+          >
+            —
+          </button>
+
+          <button
+            type="button"
+            onClick={() => (window as any).hwangjePOS?.toggleMaximizeWindow?.()}
+            className="flex h-7 w-9 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-white"
+          >
+            □
+          </button>
+
+          <button
+            type="button"
+            onClick={() => (window as any).hwangjePOS?.closeWindow?.()}
+            className="flex h-7 w-9 items-center justify-center rounded-md text-zinc-400 hover:bg-red-600 hover:text-white"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+
+      <div className="grid min-h-[calc(100vh-36px)] grid-cols-1 lg:grid-cols-[228px_minmax(390px,500px)_1fr]">
+        <aside className="hidden border-r border-[#d4af37]/15 bg-[linear-gradient(180deg,#111111_0%,#070707_100%)] lg:flex lg:flex-col">
+          <div className="border-b border-[#d4af37]/10 px-6 py-7">
+            <div className="text-[11px] font-black tracking-[0.28em] text-[#d4af37]">
+              HWANGJEE
+            </div>
+            <div className="mt-1 text-4xl font-black tracking-[-0.08em] text-[#f0d98a]">
+              POS
+            </div>
+            <div className="mt-1 text-xs font-bold text-[#d4af37]/80">
+              황제떡볶이 효자점
+            </div>
           </div>
 
-          <div className="mt-5 grid gap-3">
-            <div className="grid grid-cols-2 gap-2 md:w-[320px]">
+          <nav className="flex-1 space-y-1 px-3 py-5">
+            <button
+              type="button"
+              onClick={goBack}
+              className="mb-3 flex w-full items-center justify-between rounded-[10px] border border-[#d4af37]/20 bg-[#d4af37]/10 px-4 py-3 text-sm font-bold text-[#f0d98a]"
+            >
+              <span>← 뒤로가기</span>
+              <span>관리자</span>
+            </button>
+
+            <a
+              href="/admin"
+              className="block rounded-[10px] px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-white/[0.04] hover:text-white"
+            >
+              주문 관리
+            </a>
+
+            <button className="flex w-full items-center justify-between rounded-[10px] border border-[#d4af37]/20 bg-[#d4af37]/10 px-4 py-3 text-sm font-bold text-[#f0d98a]">
+              <span>매출 관리</span>
+              <span className="rounded-full bg-[#d4af37] px-2 py-0.5 text-xs text-black">
+                {summary.orderCount}
+              </span>
+            </button>
+
+            <a
+              href="/admin/menu"
+              className="block rounded-[10px] px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-white/[0.04] hover:text-white"
+            >
+              메뉴 관리
+            </a>
+
+            <a
+              href="/rider"
+              className="block rounded-[10px] px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-white/[0.04] hover:text-white"
+            >
+              라이더 관리
+            </a>
+
+            <a
+              href="/kitchen"
+              className="block rounded-[10px] px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-white/[0.04] hover:text-white"
+            >
+              주방 모니터
+            </a>
+          </nav>
+
+          <div className="mx-4 mb-4 rounded-[12px] border border-[#d4af37]/20 bg-black/40 p-4">
+            <div className="text-xs font-bold text-zinc-500">조회 기간</div>
+            <div className="mt-1 text-lg font-black tracking-[-0.04em] text-[#f0d98a]">
+              {selectedPeriodText}
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <div className="text-zinc-500">완료</div>
+                <div className="font-black text-zinc-100">{summary.orderCount}건</div>
+              </div>
+
+              <div>
+                <div className="text-zinc-500">객단가</div>
+                <div className="font-black text-[#d4af37]">
+                  {summary.averageOrder.toLocaleString()}원
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <section className="flex min-h-[calc(100vh-36px)] flex-col border-r border-zinc-800/80 bg-[#0b0b0b]">
+          <header className="border-b border-zinc-800 bg-[#0c0c0c] px-4 py-4 lg:px-6">
+            <div className="mb-4 flex items-center justify-between gap-3 lg:hidden">
+              <button
+                type="button"
+                onClick={goBack}
+                className="rounded-[9px] border border-[#d4af37]/35 bg-[#15120a] px-3 py-2 text-xs font-black text-[#d4af37]"
+              >
+                ← 뒤로가기
+              </button>
+
+              <div className="text-sm font-black text-[#f0d98a]">
+                매출관리
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-bold text-zinc-400">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,.8)]" />
+                  <span>완료 주문 기준</span>
+                </div>
+
+                <div className="mt-1 text-xs text-zinc-500">
+                  새벽 3시 기준 영업일 / 일매출 · 월매출 조회
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={fetchSales}
+                className="rounded-[9px] border border-[#d4af37]/35 bg-[#111111] px-3 py-2 text-xs font-black text-[#d4af37] transition hover:bg-[#17130a]"
+              >
+                새로고침
+              </button>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setViewMode("day")}
-                className={`rounded-xl px-5 py-3 text-base font-black ${
+                className={`rounded-[10px] border px-4 py-3 text-sm font-black ${
                   viewMode === "day"
-                    ? "bg-yellow-400 text-black"
-                    : "bg-zinc-800 text-white"
+                    ? "border-[#d4af37] bg-[#d4af37] text-black"
+                    : "border-zinc-800 bg-[#111111] text-zinc-400"
                 }`}
               >
                 일매출
@@ -219,268 +426,295 @@ export default function AdminSalesPage() {
               <button
                 type="button"
                 onClick={() => setViewMode("month")}
-                className={`rounded-xl px-5 py-3 text-base font-black ${
+                className={`rounded-[10px] border px-4 py-3 text-sm font-black ${
                   viewMode === "month"
-                    ? "bg-yellow-400 text-black"
-                    : "bg-zinc-800 text-white"
+                    ? "border-[#d4af37] bg-[#d4af37] text-black"
+                    : "border-zinc-800 bg-[#111111] text-zinc-400"
                 }`}
               >
                 월매출
               </button>
             </div>
 
-            {viewMode === "day" ? (
-              <div className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => {
-                    setSelectedDate(e.target.value);
-                    setViewMode("day");
-                  }}
-                  className="rounded-xl border border-zinc-700 bg-black p-4 text-lg font-black text-white"
-                />
+            <div className="mt-3">
+              {viewMode === "day" ? (
+                <div className="grid gap-2">
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => {
+                      setSelectedDate(e.target.value);
+                      setViewMode("day");
+                    }}
+                    className="rounded-[10px] border border-zinc-800 bg-black px-3 py-3 text-sm font-black text-zinc-100 outline-none focus:border-[#d4af37]/70"
+                  />
 
-                <button
-                  type="button"
-                  onClick={() => setQuickDate(0)}
-                  className="rounded-xl bg-yellow-400 px-6 py-4 text-lg font-black text-black"
-                >
-                  오늘
-                </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setQuickDate(0)}
+                      className="rounded-[9px] border border-zinc-800 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-300"
+                    >
+                      오늘
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => setQuickDate(-1)}
-                  className="rounded-xl bg-zinc-800 px-6 py-4 text-lg font-black"
-                >
-                  어제
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => setQuickDate(-1)}
+                      className="rounded-[9px] border border-zinc-800 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-300"
+                    >
+                      어제
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-2">
+                  <input
+                    type="month"
+                    value={selectedMonth}
+                    onChange={(e) => {
+                      setSelectedMonth(e.target.value);
+                      setViewMode("month");
+                    }}
+                    className="rounded-[10px] border border-zinc-800 bg-black px-3 py-3 text-sm font-black text-zinc-100 outline-none focus:border-[#d4af37]/70"
+                  />
 
-                <button
-                  type="button"
-                  onClick={fetchSales}
-                  className="rounded-xl bg-green-600 px-6 py-4 text-lg font-black"
-                >
-                  새로고침
-                </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setQuickMonth(0)}
+                      className="rounded-[9px] border border-zinc-800 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-300"
+                    >
+                      이번달
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setQuickMonth(-1)}
+                      className="rounded-[9px] border border-zinc-800 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-300"
+                    >
+                      지난달
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </header>
+
+          <div className="flex-1 overflow-y-auto px-4 py-4 lg:px-5">
+            <div className="mb-3 flex items-center justify-between text-sm">
+              <div className="font-bold text-zinc-400">매출 주문 목록</div>
+              <div className="rounded-full border border-zinc-800 px-3 py-1 text-xs font-bold text-zinc-500">
+                {selectedPeriodText}
               </div>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
-                <input
-                  type="month"
-                  value={selectedMonth}
-                  onChange={(e) => {
-                    setSelectedMonth(e.target.value);
-                    setViewMode("month");
-                  }}
-                  className="rounded-xl border border-zinc-700 bg-black p-4 text-lg font-black text-white"
-                />
+            </div>
 
-                <button
-                  type="button"
-                  onClick={() => setQuickMonth(0)}
-                  className="rounded-xl bg-yellow-400 px-6 py-4 text-lg font-black text-black"
-                >
-                  이번달
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setQuickMonth(-1)}
-                  className="rounded-xl bg-zinc-800 px-6 py-4 text-lg font-black"
-                >
-                  지난달
-                </button>
-
-                <button
-                  type="button"
-                  onClick={fetchSales}
-                  className="rounded-xl bg-green-600 px-6 py-4 text-lg font-black"
-                >
-                  새로고침
-                </button>
+            {loading && (
+              <div className="rounded-[12px] border border-zinc-800 bg-[#101010] p-10 text-center text-sm font-bold text-zinc-500">
+                매출 불러오는 중...
               </div>
             )}
 
-            <div className="rounded-xl border border-yellow-400/20 bg-black px-4 py-3 text-sm font-black text-yellow-400">
-              현재 조회: {selectedPeriodText}
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div className="rounded-2xl bg-zinc-950 p-5">
-            <div className="text-base text-zinc-400">
-              {viewMode === "month" ? "월 완료 주문" : "완료 주문"}
-            </div>
-            <div className="mt-1 text-4xl font-black text-yellow-400">
-              {summary.orderCount}건
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-zinc-950 p-5">
-            <div className="text-base text-zinc-400">
-              {viewMode === "month" ? "월 총 매출" : "총 매출"}
-            </div>
-            <div className="mt-1 text-3xl font-black text-yellow-400">
-              {summary.totalSales.toLocaleString()}원
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-zinc-950 p-5">
-            <div className="text-base text-zinc-400">배달비 합계</div>
-            <div className="mt-1 text-3xl font-black text-green-400">
-              {summary.deliveryFeeTotal.toLocaleString()}원
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-zinc-950 p-5">
-            <div className="text-base text-zinc-400">스탬프 할인</div>
-            <div className="mt-1 text-3xl font-black text-red-400">
-              -{summary.stampDiscountTotal.toLocaleString()}원
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-5 rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
-          <h2 className="mb-3 text-2xl font-black text-yellow-400">
-            결제수단별 매출
-          </h2>
-
-          <div className="grid gap-3 md:grid-cols-4">
-            <div className="rounded-xl bg-black p-4">
-              <div className="text-base text-zinc-400">현금</div>
-              <div className="mt-1 text-2xl font-black">
-                {summary.cashTotal.toLocaleString()}원
+            {!loading && orders.length === 0 && (
+              <div className="rounded-[12px] border border-zinc-800 bg-[#101010] p-10 text-center text-sm font-bold text-zinc-500">
+                선택한 기간의 완료 주문이 없습니다.
               </div>
-            </div>
+            )}
 
-            <div className="rounded-xl bg-black p-4">
-              <div className="text-base text-zinc-400">카드</div>
-              <div className="mt-1 text-2xl font-black">
-                {summary.cardTotal.toLocaleString()}원
-              </div>
-            </div>
+            <div className="space-y-3">
+              {orders.map((order) => {
+                const isSelected = selectedOrder?.id === order.id;
 
-            <div className="rounded-xl bg-black p-4">
-              <div className="text-base text-zinc-400">계좌이체</div>
-              <div className="mt-1 text-2xl font-black text-green-400">
-                {summary.transferTotal.toLocaleString()}원
-              </div>
-            </div>
-
-            <div className="rounded-xl bg-black p-4">
-              <div className="text-base text-zinc-400">미설정</div>
-              <div className="mt-1 text-2xl font-black text-zinc-400">
-                {summary.unknownTotal.toLocaleString()}원
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {loading && (
-          <div className="rounded-2xl bg-zinc-900 p-6 text-center text-xl font-black text-zinc-400">
-            매출 불러오는 중...
-          </div>
-        )}
-
-        {!loading && orders.length === 0 && (
-          <div className="rounded-2xl bg-zinc-900 p-8 text-center text-lg text-zinc-400">
-            선택한 기간의 완료 주문이 없습니다.
-          </div>
-        )}
-
-        <div className="space-y-2">
-          {orders.map((order) => {
-            const isOpen = openOrderIds.includes(order.id);
-
-            return (
-              <div
-                key={order.id}
-                className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950"
-              >
-                <div className="grid gap-3 p-4 md:grid-cols-[120px_1.2fr_1.7fr_1fr_120px] md:items-center">
-                  <div>
-                    <div className="text-sm text-zinc-500">주문</div>
-                    <div className="text-xl font-black text-yellow-400">#{order.id}</div>
-                    <div className="text-sm text-zinc-400">{formatTime(order.created_at)}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-lg font-black">{order.customer}</div>
-                    <div className="mt-1 text-sm text-zinc-400">📞 {order.phone}</div>
-                  </div>
-
-                  <div>
-                    <div className="line-clamp-1 text-base font-black text-yellow-400">
-                      {menuSummary(order.menu)}
-                    </div>
-                    <div className="mt-1 line-clamp-1 text-sm text-zinc-400">
-                      📍 {order.address}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-sm text-zinc-500">결제금액</div>
-                    <div className="text-2xl font-black text-yellow-400">
-                      {order.total.toLocaleString()}원
-                    </div>
-                    <div className="mt-1 text-sm font-bold text-green-400">
-                      {order.payment_method || "미설정"}
-                    </div>
-                  </div>
-
+                return (
                   <button
-                    onClick={() => toggleOpen(order.id)}
-                    className="rounded-xl bg-zinc-800 px-4 py-4 text-base font-black"
+                    key={order.id}
+                    type="button"
+                    onClick={() => setSelectedOrderId(order.id)}
+                    className={`w-full rounded-[12px] border bg-[#101010] p-4 text-left transition ${
+                      isSelected
+                        ? "border-[#d4af37]/80 bg-[#12100a]"
+                        : "border-zinc-800 hover:border-zinc-600"
+                    }`}
                   >
-                    {isOpen ? "숨기기" : "메뉴"}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-md border border-lime-500/40 bg-lime-500/10 px-2 py-1 text-[11px] font-black text-lime-300">
+                            완료
+                          </span>
+                          <span className="rounded-md border border-zinc-700 px-2 py-1 text-[11px] font-black text-zinc-400">
+                            {order.payment_method || "미설정"}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 text-2xl font-black tracking-[-0.05em] text-zinc-100">
+                          #{order.id} · {order.customer || "고객"}
+                        </div>
+
+                        <div className="mt-1 truncate text-sm text-zinc-400">
+                          {formatDateTime(order.created_at)}
+                        </div>
+
+                        <div className="mt-2 truncate text-sm font-bold text-zinc-300">
+                          {menuSummary(order.menu)}
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 text-right">
+                        <div className="text-xs text-zinc-500">결제금액</div>
+                        <div className="mt-1 text-xl font-black text-[#f0d98a]">
+                          {order.total.toLocaleString()}원
+                        </div>
+                      </div>
+                    </div>
                   </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section className="min-h-[calc(100vh-36px)] overflow-y-auto bg-[#090909]">
+          <header className="border-b border-zinc-800 bg-[#0b0b0b] px-5 py-4 lg:px-8">
+            <div className="grid grid-cols-2 gap-2 text-xs md:grid-cols-5">
+              <div className="rounded-[10px] border border-zinc-800 bg-[#111111] px-3 py-2">
+                <span className="text-zinc-500">총매출</span>
+                <div className="mt-1 font-black text-[#f0d98a]">
+                  {summary.totalSales.toLocaleString()}원
+                </div>
+              </div>
+
+              <div className="rounded-[10px] border border-zinc-800 bg-[#111111] px-3 py-2">
+                <span className="text-zinc-500">완료주문</span>
+                <div className="mt-1 font-black text-zinc-100">
+                  {summary.orderCount}건
+                </div>
+              </div>
+
+              <div className="rounded-[10px] border border-zinc-800 bg-[#111111] px-3 py-2">
+                <span className="text-zinc-500">객단가</span>
+                <div className="mt-1 font-black text-zinc-100">
+                  {summary.averageOrder.toLocaleString()}원
+                </div>
+              </div>
+
+              <div className="rounded-[10px] border border-zinc-800 bg-[#111111] px-3 py-2">
+                <span className="text-zinc-500">배달비</span>
+                <div className="mt-1 font-black text-[#f0d98a]">
+                  {summary.deliveryFeeTotal.toLocaleString()}원
+                </div>
+              </div>
+
+              <div className="rounded-[10px] border border-zinc-800 bg-[#111111] px-3 py-2">
+                <span className="text-zinc-500">할인</span>
+                <div className="mt-1 font-black text-red-300">
+                  -{summary.stampDiscountTotal.toLocaleString()}원
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <div className="px-5 py-5 lg:px-8">
+            <div className="grid gap-5 xl:grid-cols-[.85fr_1.15fr]">
+              <div className="rounded-[12px] border border-zinc-800 bg-[#101010]">
+                <div className="border-b border-zinc-800 px-5 py-4">
+                  <div className="text-lg font-black text-[#f0d98a]">
+                    결제수단별 매출
+                  </div>
+
+                  <div className="mt-1 text-xs text-zinc-500">
+                    완료 주문 기준 / {selectedPeriodText}
+                  </div>
                 </div>
 
-                {isOpen && (
-                  <div className="border-t border-zinc-800 p-4">
-                    <div className="mb-3 grid grid-cols-2 gap-2 md:grid-cols-4">
-                      <div className="rounded-xl bg-black p-3">
-                        <div className="text-xs text-zinc-500">배달비</div>
-                        <div className="font-black">
-                          {(order.delivery_fee || 0).toLocaleString()}원
+                <div className="divide-y divide-zinc-800">
+                  {paymentCards.map((card) => (
+                    <div
+                      key={card.label}
+                      className="flex items-center justify-between px-5 py-4 text-sm"
+                    >
+                      <div className="font-bold text-zinc-400">{card.label}</div>
+                      <div className={`text-xl font-black ${card.accent}`}>
+                        {card.value.toLocaleString()}원
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-[12px] border border-zinc-800 bg-[#101010]">
+                <div className="border-b border-zinc-800 px-5 py-4">
+                  <div className="text-lg font-black text-[#f0d98a]">
+                    선택 주문 상세
+                  </div>
+
+                  <div className="mt-1 text-xs text-zinc-500">
+                    주문 목록에서 항목을 선택하면 상세가 표시됩니다.
+                  </div>
+                </div>
+
+                {selectedOrder ? (
+                  <div className="p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-black text-[#d4af37]">
+                          주문번호
+                        </div>
+
+                        <div className="mt-2 text-5xl font-black tracking-[-0.08em] text-zinc-100">
+                          #{selectedOrder.id}
+                        </div>
+
+                        <div className="mt-2 text-sm text-zinc-500">
+                          {formatDateTime(selectedOrder.created_at)}
                         </div>
                       </div>
 
-                      <div className="rounded-xl bg-black p-3">
-                        <div className="text-xs text-zinc-500">거리</div>
-                        <div className="font-black">
-                          {order.delivery_distance_km
-                            ? `${Number(order.delivery_distance_km).toFixed(1)}km`
-                            : "0km"}
+                      <div className="rounded-md border border-lime-500/40 bg-lime-500/10 px-3 py-2 text-xs font-black text-lime-300">
+                        완료
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-3 xl:grid-cols-2">
+                      <div className="rounded-[10px] border border-zinc-800 bg-black/35 p-3">
+                        <div className="text-xs font-black text-zinc-500">고객</div>
+                        <div className="mt-2 text-xl font-black text-[#f0d98a]">
+                          {selectedOrder.customer || "고객"}
+                        </div>
+                        <div className="mt-2 text-sm text-zinc-300">
+                          {selectedOrder.phone}
                         </div>
                       </div>
 
-                      <div className="rounded-xl bg-black p-3">
-                        <div className="text-xs text-zinc-500">할인</div>
-                        <div className="font-black text-red-400">
-                          -{(order.stamp_discount || 0).toLocaleString()}원
+                      <div className="rounded-[10px] border border-zinc-800 bg-black/35 p-3">
+                        <div className="text-xs font-black text-zinc-500">결제</div>
+                        <div className="mt-2 text-xl font-black text-[#f0d98a]">
+                          {selectedOrder.total.toLocaleString()}원
                         </div>
-                      </div>
-
-                      <div className="rounded-xl bg-black p-3">
-                        <div className="text-xs text-zinc-500">결제수단</div>
-                        <div className="font-black text-green-400">
-                          {order.payment_method || "미설정"}
+                        <div className="mt-2 text-sm text-zinc-300">
+                          {selectedOrder.payment_method || "미설정"}
                         </div>
                       </div>
                     </div>
 
-                    <div className="grid gap-2 md:grid-cols-2">
-                      {menuLines(order.menu).map((item, index) => (
-                        <div key={index} className="rounded-xl bg-zinc-900 p-3">
-                          <div className="flex justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="truncate font-black">{item.name}</div>
-                              <div className="mt-1 text-sm text-zinc-400">
-                                수량 {item.qty}개
+                    <div className="mt-3 rounded-[10px] border border-zinc-800 bg-black/35 p-3 text-sm leading-relaxed text-zinc-300">
+                      {selectedOrder.address}
+                    </div>
+
+                    <div className="mt-5 rounded-[12px] border border-zinc-800 bg-[#0c0c0c]">
+                      <div className="border-b border-zinc-800 px-4 py-3 text-sm font-black text-[#f0d98a]">
+                        메뉴 상세
+                      </div>
+
+                      <div className="divide-y divide-zinc-800">
+                        {selectedLines.map((item, index) => (
+                          <div
+                            key={index}
+                            className="grid grid-cols-[1fr_56px_100px] gap-3 px-4 py-3 text-sm"
+                          >
+                            <div>
+                              <div className="font-black text-zinc-100">
+                                {item.name}
                               </div>
 
                               {item.options && item.options.length > 0 && (
@@ -488,34 +722,132 @@ export default function AdminSalesPage() {
                                   {item.options.map((option, optionIndex) => (
                                     <div key={optionIndex}>
                                       - {option.groupName}: {option.optionName}
-                                      {option.price > 0 &&
-                                        ` +${option.price.toLocaleString()}원`}
+                                      {option.price > 0
+                                        ? ` +${option.price.toLocaleString()}원`
+                                        : ""}
                                     </div>
                                   ))}
                                 </div>
                               )}
                             </div>
 
-                            <div className="shrink-0 whitespace-nowrap font-black text-yellow-400">
-                              {item.total.toLocaleString()}원
+                            <div className="text-center font-black text-[#d4af37]">
+                              {item.qty}
+                            </div>
+
+                            <div className="text-right font-black text-zinc-100">
+                              {Number(item.total || 0).toLocaleString()}원
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
 
-                    <div className="mt-3 rounded-xl bg-zinc-900 p-3">
-                      <div className="mb-1 text-sm text-zinc-400">요청사항</div>
-                      <div className="text-sm">
-                        {order.memo?.trim() ? order.memo : "요청사항 없음"}
+                      <div className="space-y-2 border-t border-zinc-800 px-4 py-4 text-sm">
+                        <div className="flex justify-between text-zinc-400">
+                          <span>상품 금액</span>
+                          <span>{selectedMenuTotal.toLocaleString()}원</span>
+                        </div>
+
+                        <div className="flex justify-between text-zinc-400">
+                          <span>배달비</span>
+                          <span>{Number(selectedOrder.delivery_fee || 0).toLocaleString()}원</span>
+                        </div>
+
+                        {Number(selectedOrder.stamp_discount || 0) > 0 && (
+                          <div className="flex justify-between text-emerald-300">
+                            <span>스탬프 할인</span>
+                            <span>
+                              -{Number(selectedOrder.stamp_discount || 0).toLocaleString()}원
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="flex justify-between border-t border-zinc-800 pt-3 text-xl font-black text-[#f0d98a]">
+                          <span>총 결제 금액</span>
+                          <span>{selectedOrder.total.toLocaleString()}원</span>
+                        </div>
                       </div>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleOpen(selectedOrder.id)}
+                      className="mt-4 w-full rounded-[10px] border border-zinc-700 bg-[#111111] px-4 py-3 text-sm font-black text-zinc-200 transition hover:border-[#d4af37]/50"
+                    >
+                      {openOrderIds.includes(selectedOrder.id)
+                        ? "요청사항 숨기기"
+                        : "요청사항 보기"}
+                    </button>
+
+                    {openOrderIds.includes(selectedOrder.id) && (
+                      <div className="mt-3 rounded-[10px] border border-zinc-800 bg-black/35 p-3">
+                        <div className="text-xs font-black text-zinc-500">
+                          요청사항
+                        </div>
+
+                        <div className="mt-2 text-sm leading-relaxed text-zinc-300">
+                          {selectedOrder.memo?.trim()
+                            ? selectedOrder.memo
+                            : "요청사항 없음"}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-10 text-center text-sm font-bold text-zinc-500">
+                    선택된 주문이 없습니다.
                   </div>
                 )}
               </div>
-            );
-          })}
-        </div>
+            </div>
+
+            <div className="mt-5 rounded-[12px] border border-zinc-800 bg-[#101010] p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <div className="text-lg font-black text-[#f0d98a]">
+                    전체 주문 내역
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-500">
+                    펼치기 없이도 우측 상세에서 전체 정보를 확인할 수 있습니다.
+                  </div>
+                </div>
+
+                <div className="text-sm font-black text-zinc-500">
+                  {orders.length}건
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-[10px] border border-zinc-800">
+                <div className="grid grid-cols-[90px_1fr_1.5fr_150px_140px] gap-3 border-b border-zinc-800 bg-black/40 px-4 py-3 text-xs font-black text-zinc-500">
+                  <div>주문</div>
+                  <div>고객</div>
+                  <div>메뉴</div>
+                  <div>결제수단</div>
+                  <div className="text-right">금액</div>
+                </div>
+
+                <div className="divide-y divide-zinc-800">
+                  {orders.map((order) => (
+                    <button
+                      key={order.id}
+                      type="button"
+                      onClick={() => setSelectedOrderId(order.id)}
+                      className="grid w-full grid-cols-[90px_1fr_1.5fr_150px_140px] gap-3 px-4 py-3 text-left text-sm transition hover:bg-white/[0.03]"
+                    >
+                      <div className="font-black text-[#d4af37]">#{order.id}</div>
+                      <div className="truncate text-zinc-300">{order.customer}</div>
+                      <div className="truncate text-zinc-400">{menuSummary(order.menu)}</div>
+                      <div className="truncate text-zinc-400">{order.payment_method || "미설정"}</div>
+                      <div className="text-right font-black text-[#f0d98a]">
+                        {order.total.toLocaleString()}원
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
   );

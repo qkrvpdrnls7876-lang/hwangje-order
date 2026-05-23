@@ -840,7 +840,44 @@ export default function AdminPage() {
   }, [orders, selectedOrderId]);
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#070707] text-zinc-100">
+    <main className="min-h-screen overflow-hidden bg-[#070707] pt-9 text-zinc-100">
+      <div className="fixed left-0 right-0 top-0 z-[1200] flex h-9 items-center justify-between border-b border-[#d4af3720] bg-[#080808]/98 px-3 text-xs text-zinc-400 backdrop-blur-xl [-webkit-app-region:drag]">
+        <div className="flex items-center gap-2 font-black tracking-[-0.03em] text-[#d4af37]">
+          <span className="h-2 w-2 rounded-full bg-[#d4af37] shadow-[0_0_12px_rgba(212,175,55,.85)]" />
+          <span>황제POS</span>
+          <span className="hidden text-[10px] font-bold text-zinc-600 sm:inline">관리자</span>
+        </div>
+
+        <div className="flex items-center gap-1 [-webkit-app-region:no-drag]">
+          <button
+            type="button"
+            onClick={() => (window as any).hwangjePOS?.minimizeWindow?.()}
+            className="flex h-7 w-9 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-800 hover:text-white"
+            aria-label="최소화"
+          >
+            —
+          </button>
+
+          <button
+            type="button"
+            onClick={() => (window as any).hwangjePOS?.toggleMaximizeWindow?.()}
+            className="flex h-7 w-9 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-800 hover:text-white"
+            aria-label="최대화"
+          >
+            □
+          </button>
+
+          <button
+            type="button"
+            onClick={() => (window as any).hwangjePOS?.closeWindow?.()}
+            className="flex h-7 w-9 items-center justify-center rounded-md text-zinc-400 transition hover:bg-red-600 hover:text-white"
+            aria-label="닫기"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+
       <audio ref={audioRef} preload="auto">
         <source src="/sounds/order.mp3" type="audio/mpeg" />
       </audio>
@@ -904,7 +941,7 @@ export default function AdminPage() {
               <div>
                 <div className="flex items-center gap-2 text-sm font-bold text-zinc-400">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,.8)]" />
-                  <span>{activeOrderCount}개 영업 중</span>
+                  <span>{activeOrderCount}1개 영업 중</span>
                 </div>
                 <div className="mt-1 text-xs text-zinc-500">새벽 3시 기준 오늘 영업일 주문</div>
               </div>
