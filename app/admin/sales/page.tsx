@@ -32,8 +32,11 @@ type MenuLine = {
 
 export default function AdminSalesPage() {
   const todayText = new Date().toISOString().slice(0, 10);
+  const currentMonthText = todayText.slice(0, 7);
 
+  const [viewMode, setViewMode] = useState<"day" | "month">("day");
   const [selectedDate, setSelectedDate] = useState(todayText);
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthText);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [openOrderIds, setOpenOrderIds] = useState<number[]>([]);
@@ -46,10 +49,22 @@ export default function AdminSalesPage() {
     return { start, end };
   };
 
+  const getMonthRange = (monthText: string) => {
+    const [year, month] = monthText.split("-").map(Number);
+
+    const start = new Date(year, month - 1, 1, 3, 0, 0);
+    const end = new Date(year, month, 1, 3, 0, 0);
+
+    return { start, end };
+  };
+
   const fetchSales = async () => {
     setLoading(true);
 
-    const { start, end } = getBusinessRange(selectedDate);
+    const { start, end } =
+      viewMode === "month"
+        ? getMonthRange(selectedMonth)
+        : getBusinessRange(selectedDate);
 
     const { data, error } = await supabase
       .from("orders")
@@ -71,7 +86,7 @@ export default function AdminSalesPage() {
 
   useEffect(() => {
     fetchSales();
-  }, [selectedDate]);
+  }, [selectedDate, selectedMonth, viewMode]);
 
   const summary = useMemo(() => {
     const orderCount = orders.length;
@@ -117,7 +132,20 @@ export default function AdminSalesPage() {
     const date = new Date();
     date.setDate(date.getDate() + offset);
     setSelectedDate(date.toISOString().slice(0, 10));
+    setViewMode("day");
   };
+
+  const setQuickMonth = (offset: number) => {
+    const date = new Date();
+    date.setMonth(date.getMonth() + offset);
+    setSelectedMonth(date.toISOString().slice(0, 7));
+    setViewMode("month");
+  };
+
+  const selectedPeriodText =
+    viewMode === "month"
+      ? `${selectedMonth.replace("-", "년 ")}월`
+      : selectedDate;
 
   const toggleOpen = (id: number) => {
     setOpenOrderIds((prev) =>
@@ -164,60 +192,137 @@ export default function AdminSalesPage() {
             <div>
               <div className="text-sm font-bold text-zinc-400">황제 관리자</div>
               <h1 className="mt-1 text-3xl font-black text-yellow-400 md:text-4xl">
-                날짜별 매출보기
+                매출보기
               </h1>
               <p className="mt-2 text-sm text-zinc-400">
-                새벽 3시 기준 영업일 / 완료 주문만 집계
+                일매출/월매출 선택 가능 · 새벽 3시 기준 영업일 / 완료 주문만 집계
               </p>
             </div>
 
         
           </div>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="rounded-xl border border-zinc-700 bg-black p-4 text-lg font-black text-white"
-            />
+          <div className="mt-5 grid gap-3">
+            <div className="grid grid-cols-2 gap-2 md:w-[320px]">
+              <button
+                type="button"
+                onClick={() => setViewMode("day")}
+                className={`rounded-xl px-5 py-3 text-base font-black ${
+                  viewMode === "day"
+                    ? "bg-yellow-400 text-black"
+                    : "bg-zinc-800 text-white"
+                }`}
+              >
+                일매출
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setQuickDate(0)}
-              className="rounded-xl bg-yellow-400 px-6 py-4 text-lg font-black text-black"
-            >
-              오늘
-            </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("month")}
+                className={`rounded-xl px-5 py-3 text-base font-black ${
+                  viewMode === "month"
+                    ? "bg-yellow-400 text-black"
+                    : "bg-zinc-800 text-white"
+                }`}
+              >
+                월매출
+              </button>
+            </div>
 
-            <button
-              type="button"
-              onClick={() => setQuickDate(-1)}
-              className="rounded-xl bg-zinc-800 px-6 py-4 text-lg font-black"
-            >
-              어제
-            </button>
+            {viewMode === "day" ? (
+              <div className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => {
+                    setSelectedDate(e.target.value);
+                    setViewMode("day");
+                  }}
+                  className="rounded-xl border border-zinc-700 bg-black p-4 text-lg font-black text-white"
+                />
 
-            <button
-              type="button"
-              onClick={fetchSales}
-              className="rounded-xl bg-green-600 px-6 py-4 text-lg font-black"
-            >
-              새로고침
-            </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickDate(0)}
+                  className="rounded-xl bg-yellow-400 px-6 py-4 text-lg font-black text-black"
+                >
+                  오늘
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setQuickDate(-1)}
+                  className="rounded-xl bg-zinc-800 px-6 py-4 text-lg font-black"
+                >
+                  어제
+                </button>
+
+                <button
+                  type="button"
+                  onClick={fetchSales}
+                  className="rounded-xl bg-green-600 px-6 py-4 text-lg font-black"
+                >
+                  새로고침
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => {
+                    setSelectedMonth(e.target.value);
+                    setViewMode("month");
+                  }}
+                  className="rounded-xl border border-zinc-700 bg-black p-4 text-lg font-black text-white"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setQuickMonth(0)}
+                  className="rounded-xl bg-yellow-400 px-6 py-4 text-lg font-black text-black"
+                >
+                  이번달
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setQuickMonth(-1)}
+                  className="rounded-xl bg-zinc-800 px-6 py-4 text-lg font-black"
+                >
+                  지난달
+                </button>
+
+                <button
+                  type="button"
+                  onClick={fetchSales}
+                  className="rounded-xl bg-green-600 px-6 py-4 text-lg font-black"
+                >
+                  새로고침
+                </button>
+              </div>
+            )}
+
+            <div className="rounded-xl border border-yellow-400/20 bg-black px-4 py-3 text-sm font-black text-yellow-400">
+              현재 조회: {selectedPeriodText}
+            </div>
           </div>
         </div>
 
         <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
           <div className="rounded-2xl bg-zinc-950 p-5">
-            <div className="text-base text-zinc-400">완료 주문</div>
+            <div className="text-base text-zinc-400">
+              {viewMode === "month" ? "월 완료 주문" : "완료 주문"}
+            </div>
             <div className="mt-1 text-4xl font-black text-yellow-400">
               {summary.orderCount}건
             </div>
           </div>
 
           <div className="rounded-2xl bg-zinc-950 p-5">
-            <div className="text-base text-zinc-400">총 매출</div>
+            <div className="text-base text-zinc-400">
+              {viewMode === "month" ? "월 총 매출" : "총 매출"}
+            </div>
             <div className="mt-1 text-3xl font-black text-yellow-400">
               {summary.totalSales.toLocaleString()}원
             </div>
@@ -282,7 +387,7 @@ export default function AdminSalesPage() {
 
         {!loading && orders.length === 0 && (
           <div className="rounded-2xl bg-zinc-900 p-8 text-center text-lg text-zinc-400">
-            선택한 날짜의 완료 주문이 없습니다.
+            선택한 기간의 완료 주문이 없습니다.
           </div>
         )}
 
