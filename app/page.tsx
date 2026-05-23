@@ -125,6 +125,7 @@ const [links, setLinks] = useState<GroupMenuLink[]>([]);
   );
   const [gettingLocation, setGettingLocation] = useState(false);
   const [submittingOrder, setSubmittingOrder] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   const getDeviceId=()=>{
     let id=localStorage.getItem("hwangje_device_id");
@@ -160,6 +161,100 @@ const [links, setLinks] = useState<GroupMenuLink[]>([]);
   ];
 
   const paymentMethods = ["만나서 현금결제", "만나서 카드결제", "계좌이체"];
+
+  const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+
+  const getBusinessDay = (date: Date) => {
+    const businessDay = new Date(date);
+
+    // 새벽 3시 전까지는 전날 영업일로 봄
+    if (businessDay.getHours() < 3) {
+      businessDay.setDate(businessDay.getDate() - 1);
+    }
+
+    businessDay.setHours(0, 0, 0, 0);
+    return businessDay;
+  };
+
+  const isWeekendBusinessDay = (date: Date) => {
+    const day = date.getDay();
+    return day === 0 || day === 6;
+  };
+
+  const getNextOpenText = (date: Date) => {
+    const next = new Date(date);
+
+    for (let i = 0; i < 8; i += 1) {
+      const candidate = new Date(next);
+      candidate.setDate(next.getDate() + i);
+      candidate.setHours(candidate.getHours() < 3 && i === 0 ? 3 : 0, 0, 0, 0);
+
+      const businessDay = getBusinessDay(candidate);
+      const day = businessDay.getDay();
+
+      if (day === 3) continue;
+
+      const openHour = isWeekendBusinessDay(businessDay) ? 15 : 16;
+      const openAt = new Date(businessDay);
+      openAt.setHours(openHour, 0, 0, 0);
+
+      if (openAt.getTime() > date.getTime()) {
+        const label =
+          i === 0
+            ? "오늘"
+            : i === 1
+              ? "내일"
+              : `${businessDay.getMonth() + 1}/${businessDay.getDate()}(${dayNames[day]})`;
+
+        return `${label} 오후 ${openHour === 15 ? "3" : "4"}시 오픈`;
+      }
+    }
+
+    return "다음 영업일에 오픈";
+  };
+
+  const getStoreStatus = (date: Date) => {
+    const businessDay = getBusinessDay(date);
+    const businessDayNumber = businessDay.getDay();
+    const isClosedDay = businessDayNumber === 3;
+    const openHour = isWeekendBusinessDay(businessDay) ? 15 : 16;
+
+    const openAt = new Date(businessDay);
+    openAt.setHours(openHour, 0, 0, 0);
+
+    const closeAt = new Date(businessDay);
+    closeAt.setDate(closeAt.getDate() + 1);
+    closeAt.setHours(3, 0, 0, 0);
+
+    const isOpen =
+      !isClosedDay &&
+      date.getTime() >= openAt.getTime() &&
+      date.getTime() < closeAt.getTime();
+
+    const scheduleText =
+      "평일 오후 4시 ~ 새벽 3시 · 주말 오후 3시 ~ 새벽 3시 · 수요일 정기휴무";
+
+    if (isOpen) {
+      return {
+        isOpen,
+        title: "영업중",
+        message: `오늘은 ${dayNames[businessDayNumber]}요일 영업일입니다. 새벽 3시까지 주문 가능`,
+        scheduleText,
+        nextOpenText: "",
+      };
+    }
+
+    return {
+      isOpen,
+      title: isClosedDay ? "수요일 정기휴무" : "영업시간 종료",
+      message: isClosedDay
+        ? "매주 수요일은 쉬어갑니다. 영업시간에는 다시 주문할 수 있어요."
+        : `지금은 주문 접수 시간이 아닙니다. ${getNextOpenText(date)}`,
+      scheduleText,
+      nextOpenText: getNextOpenText(date),
+    };
+  };
+
 
   const fetchAll = async () => {
     const menusResult = await supabase
@@ -233,6 +328,14 @@ if (linksResult.error)
 
   useEffect(() => {
     loadKakaoMap();
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60 * 1000);
+
+    return () => clearInterval(timer);
   }, []);
 
   const normalizePhone = (phone: string) => phone.replace(/[^0-9]/g, "");
@@ -1035,6 +1138,13 @@ return groups.filter(
     setSubmittingOrder(true);
 
     try {
+      const liveStoreStatus = getStoreStatus(new Date());
+
+      if (!liveStoreStatus.isOpen) {
+        alert(`${liveStoreStatus.title}\n${liveStoreStatus.message}`);
+        return;
+      }
+
       if (cart.length === 0) {
         alert("메뉴를 담아주세요");
         return;
@@ -1243,6 +1353,8 @@ return groups.filter(
     }
   };
 
+  const storeStatus = getStoreStatus(currentTime);
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] bg-[radial-gradient(circle_at_top,#3b2f0b_0%,#050505_34%)] pb-24 text-[#f7e7b0] md:pb-0">
       <div
@@ -1267,6 +1379,41 @@ return groups.filter(
           <div className="mt-2 rounded-xl border border-[#d4af3728] bg-[#050505]/90 px-3.5 py-2 text-[11px] font-black text-zinc-200 md:text-sm">
             최소 주문금액
             <span className="ml-2 text-[#f4d56d]">11,000원</span>
+          </div>
+
+          <div
+            className={`mt-2 w-full max-w-xs rounded-2xl border px-3 py-2.5 text-left shadow-lg md:max-w-sm ${
+              storeStatus.isOpen
+                ? "border-green-400/35 bg-green-950/35 shadow-green-500/10"
+                : "border-red-400/35 bg-red-950/35 shadow-red-500/10"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-black text-zinc-300 md:text-sm">
+                영업시간
+              </div>
+              <div
+                className={`rounded-full px-2.5 py-1 text-[11px] font-black ${
+                  storeStatus.isOpen
+                    ? "bg-green-500 text-black"
+                    : "bg-red-500 text-white"
+                }`}
+              >
+                {storeStatus.title}
+              </div>
+            </div>
+
+            <div className="mt-1 text-[11px] font-bold leading-relaxed text-[#fff2b8] md:text-xs">
+              {storeStatus.scheduleText}
+            </div>
+
+            <div
+              className={`mt-1 text-[11px] font-black md:text-xs ${
+                storeStatus.isOpen ? "text-green-300" : "text-red-300"
+              }`}
+            >
+              {storeStatus.message}
+            </div>
           </div>
 
           <div className="mt-3 grid w-full max-w-xs grid-cols-2 gap-2 md:max-w-sm">
@@ -1559,16 +1706,24 @@ return groups.filter(
                     배달 가능 거리 8km 초과로 주문할 수 없습니다.
                   </div>
                 )}
+
+                {!storeStatus.isOpen && (
+                  <div className="mt-2 rounded-lg border border-red-500/30 bg-red-950/40 p-2 text-xs font-black leading-relaxed text-red-300 md:text-sm">
+                    {storeStatus.title} · {storeStatus.message}
+                  </div>
+                )}
               </div>
 
               <button
                 onClick={() => setShowOrderForm(true)}
                 disabled={
+                  !storeStatus.isOpen ||
                   cart.length === 0 ||
                   menuTotal < 11000 ||
                   deliveryDistance > MAX_DELIVERY_DISTANCE_KM
                 }
                 className={`mt-3 w-full rounded-lg p-2.5 text-sm font-black ${
+                  !storeStatus.isOpen ||
                   cart.length === 0 ||
                   menuTotal < 11000 ||
                   deliveryDistance > MAX_DELIVERY_DISTANCE_KM
@@ -1576,7 +1731,7 @@ return groups.filter(
                     : "bg-red-500"
                 }`}
               >
-                주문하기
+                {storeStatus.isOpen ? "주문하기" : "영업시간 외 주문불가"}
               </button>
 
               {showOrderForm && (
@@ -1886,10 +2041,12 @@ return groups.filter(
                   <button
                     onClick={submitOrder}
                     disabled={
+                      !storeStatus.isOpen ||
                       deliveryDistance > MAX_DELIVERY_DISTANCE_KM ||
                       submittingOrder
                     }
                     className={`w-full rounded-lg p-3 text-sm font-black shadow-lg ${
+                      !storeStatus.isOpen ||
                       deliveryDistance > MAX_DELIVERY_DISTANCE_KM ||
                       submittingOrder
                         ? "bg-zinc-800 text-zinc-500 shadow-none"
@@ -1898,9 +2055,11 @@ return groups.filter(
                   >
                     {submittingOrder
                       ? "주문 처리중..."
-                      : deliveryDistance > MAX_DELIVERY_DISTANCE_KM
-                        ? "배달 가능 거리 초과"
-                        : "주문 접수하기"}
+                      : !storeStatus.isOpen
+                        ? "영업시간 외 주문불가"
+                        : deliveryDistance > MAX_DELIVERY_DISTANCE_KM
+                          ? "배달 가능 거리 초과"
+                          : "주문 접수하기"}
                   </button>
                 </div>
               )}
