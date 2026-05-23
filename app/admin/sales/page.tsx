@@ -171,6 +171,73 @@ export default function AdminSalesPage() {
     setViewMode("month");
   };
 
+  const toDateText = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  };
+
+  const toMonthText = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+
+    return `${year}-${month}`;
+  };
+
+  const shiftSelectedDate = (amount: number) => {
+    const date = new Date(`${selectedDate}T00:00:00`);
+    date.setDate(date.getDate() + amount);
+    setSelectedDate(toDateText(date));
+    setViewMode("day");
+  };
+
+  const shiftSelectedMonth = (amount: number) => {
+    const [year, month] = selectedMonth.split("-").map(Number);
+    const date = new Date(year, month - 1, 1);
+    date.setMonth(date.getMonth() + amount);
+    setSelectedMonth(toMonthText(date));
+    setViewMode("month");
+  };
+
+  const shiftCalendarMonth = (amount: number) => {
+    const date = new Date(`${selectedDate}T00:00:00`);
+    date.setMonth(date.getMonth() + amount);
+    setSelectedDate(toDateText(date));
+    setViewMode("day");
+  };
+
+  const selectedDateObject = new Date(`${selectedDate}T00:00:00`);
+  const selectedMonthParts = selectedMonth.split("-").map(Number);
+  const selectedMonthYear = selectedMonthParts[0];
+  const selectedMonthNumber = selectedMonthParts[1];
+
+  const dayCalendarDays = useMemo(() => {
+    const base = new Date(`${selectedDate}T00:00:00`);
+    const firstDay = new Date(base.getFullYear(), base.getMonth(), 1);
+    const startDay = new Date(firstDay);
+
+    startDay.setDate(firstDay.getDate() - firstDay.getDay());
+
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = new Date(startDay);
+      date.setDate(startDay.getDate() + index);
+      return date;
+    });
+  }, [selectedDate]);
+
+  const selectCalendarDate = (date: Date) => {
+    setSelectedDate(toDateText(date));
+    setViewMode("day");
+  };
+
+  const selectCalendarMonth = (monthNumber: number) => {
+    const next = new Date(selectedMonthYear, monthNumber - 1, 1);
+    setSelectedMonth(toMonthText(next));
+    setViewMode("month");
+  };
+
   const selectedPeriodText =
     viewMode === "month"
       ? `${selectedMonth.replace("-", "년 ")}월`
@@ -438,63 +505,191 @@ export default function AdminSalesPage() {
 
             <div className="mt-3">
               {viewMode === "day" ? (
-                <div className="grid gap-2">
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => {
-                      setSelectedDate(e.target.value);
-                      setViewMode("day");
-                    }}
-                    className="rounded-[10px] border border-zinc-800 bg-black px-3 py-3 text-sm font-black text-zinc-100 outline-none focus:border-[#d4af37]/70"
-                  />
+                <div className="rounded-[12px] border border-zinc-800 bg-[#080808] p-3">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => shiftSelectedDate(-1)}
+                      className="flex h-10 w-10 items-center justify-center rounded-[9px] border border-[#d4af37]/25 bg-[#111111] text-lg font-black text-[#d4af37] transition hover:border-[#d4af37] hover:bg-[#17130a]"
+                    >
+                      ‹
+                    </button>
 
-                  <div className="grid grid-cols-2 gap-2">
+                    <div className="min-w-0 flex-1 rounded-[9px] border border-[#d4af37]/20 bg-black px-3 py-2 text-center">
+                      <div className="text-[11px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                        일매출 조회
+                      </div>
+                      <div className="mt-1 text-sm font-black text-[#f0d98a]">
+                        {selectedDateObject.toLocaleDateString("ko-KR", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                          weekday: "short",
+                        })}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => shiftSelectedDate(1)}
+                      className="flex h-10 w-10 items-center justify-center rounded-[9px] border border-[#d4af37]/25 bg-[#111111] text-lg font-black text-[#d4af37] transition hover:border-[#d4af37] hover:bg-[#17130a]"
+                    >
+                      ›
+                    </button>
+                  </div>
+
+                  <div className="mb-3 grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => shiftCalendarMonth(-1)}
+                      className="rounded-[9px] border border-zinc-800 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-300 transition hover:border-[#d4af37]/50"
+                    >
+                      이전달
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => setQuickDate(0)}
-                      className="rounded-[9px] border border-zinc-800 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-300"
+                      className="rounded-[9px] border border-[#d4af37]/50 bg-[#d4af37] px-3 py-2 text-xs font-black text-black transition hover:bg-[#f0d98a]"
                     >
                       오늘
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => setQuickDate(-1)}
-                      className="rounded-[9px] border border-zinc-800 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-300"
+                      onClick={() => shiftCalendarMonth(1)}
+                      className="rounded-[9px] border border-zinc-800 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-300 transition hover:border-[#d4af37]/50"
                     >
-                      어제
+                      다음달
                     </button>
+                  </div>
+
+                  <div className="mb-2 grid grid-cols-7 gap-1 text-center text-[10px] font-black text-zinc-500">
+                    {["일", "월", "화", "수", "목", "금", "토"].map((day) => (
+                      <div key={day} className="py-1">
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-1">
+                    {dayCalendarDays.map((date) => {
+                      const dateText = toDateText(date);
+                      const selected = dateText === selectedDate;
+                      const today = dateText === todayText;
+                      const outside =
+                        date.getMonth() !== selectedDateObject.getMonth();
+
+                      return (
+                        <button
+                          key={dateText}
+                          type="button"
+                          onClick={() => selectCalendarDate(date)}
+                          className={`h-9 rounded-[8px] border text-xs font-black transition ${
+                            selected
+                              ? "border-[#d4af37] bg-[#d4af37] text-black"
+                              : today
+                                ? "border-[#d4af37]/50 bg-[#d4af37]/10 text-[#f0d98a]"
+                                : outside
+                                  ? "border-transparent bg-transparent text-zinc-700 hover:border-zinc-800"
+                                  : "border-zinc-800 bg-[#101010] text-zinc-300 hover:border-[#d4af37]/40"
+                          }`}
+                        >
+                          {date.getDate()}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ) : (
-                <div className="grid gap-2">
-                  <input
-                    type="month"
-                    value={selectedMonth}
-                    onChange={(e) => {
-                      setSelectedMonth(e.target.value);
-                      setViewMode("month");
-                    }}
-                    className="rounded-[10px] border border-zinc-800 bg-black px-3 py-3 text-sm font-black text-zinc-100 outline-none focus:border-[#d4af37]/70"
-                  />
+                <div className="rounded-[12px] border border-zinc-800 bg-[#080808] p-3">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => shiftSelectedMonth(-1)}
+                      className="flex h-10 w-10 items-center justify-center rounded-[9px] border border-[#d4af37]/25 bg-[#111111] text-lg font-black text-[#d4af37] transition hover:border-[#d4af37] hover:bg-[#17130a]"
+                    >
+                      ‹
+                    </button>
 
-                  <div className="grid grid-cols-2 gap-2">
+                    <div className="min-w-0 flex-1 rounded-[9px] border border-[#d4af37]/20 bg-black px-3 py-2 text-center">
+                      <div className="text-[11px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                        월매출 조회
+                      </div>
+                      <div className="mt-1 text-sm font-black text-[#f0d98a]">
+                        {selectedMonthYear}년 {selectedMonthNumber}월
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => shiftSelectedMonth(1)}
+                      className="flex h-10 w-10 items-center justify-center rounded-[9px] border border-[#d4af37]/25 bg-[#111111] text-lg font-black text-[#d4af37] transition hover:border-[#d4af37] hover:bg-[#17130a]"
+                    >
+                      ›
+                    </button>
+                  </div>
+
+                  <div className="mb-3 grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const date = new Date(selectedMonthYear - 1, selectedMonthNumber - 1, 1);
+                        setSelectedMonth(toMonthText(date));
+                        setViewMode("month");
+                      }}
+                      className="rounded-[9px] border border-zinc-800 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-300 transition hover:border-[#d4af37]/50"
+                    >
+                      이전년
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => setQuickMonth(0)}
-                      className="rounded-[9px] border border-zinc-800 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-300"
+                      className="rounded-[9px] border border-[#d4af37]/50 bg-[#d4af37] px-3 py-2 text-xs font-black text-black transition hover:bg-[#f0d98a]"
                     >
                       이번달
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => setQuickMonth(-1)}
-                      className="rounded-[9px] border border-zinc-800 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-300"
+                      onClick={() => {
+                        const date = new Date(selectedMonthYear + 1, selectedMonthNumber - 1, 1);
+                        setSelectedMonth(toMonthText(date));
+                        setViewMode("month");
+                      }}
+                      className="rounded-[9px] border border-zinc-800 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-300 transition hover:border-[#d4af37]/50"
                     >
-                      지난달
+                      다음년
                     </button>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    {Array.from({ length: 12 }, (_, index) => index + 1).map(
+                      (monthNumber) => {
+                        const selected = monthNumber === selectedMonthNumber;
+                        const isCurrent =
+                          selectedMonthYear === Number(currentMonthText.slice(0, 4)) &&
+                          monthNumber === Number(currentMonthText.slice(5, 7));
+
+                        return (
+                          <button
+                            key={monthNumber}
+                            type="button"
+                            onClick={() => selectCalendarMonth(monthNumber)}
+                            className={`rounded-[9px] border px-3 py-3 text-xs font-black transition ${
+                              selected
+                                ? "border-[#d4af37] bg-[#d4af37] text-black"
+                                : isCurrent
+                                  ? "border-[#d4af37]/50 bg-[#d4af37]/10 text-[#f0d98a]"
+                                  : "border-zinc-800 bg-[#101010] text-zinc-300 hover:border-[#d4af37]/40"
+                            }`}
+                          >
+                            {monthNumber}월
+                          </button>
+                        );
+                      },
+                    )}
                   </div>
                 </div>
               )}

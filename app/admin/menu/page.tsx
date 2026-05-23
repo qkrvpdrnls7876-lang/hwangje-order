@@ -67,6 +67,8 @@ export default function AdminMenuPage() {
 
   const [selectedMenuIds, setSelectedMenuIds] = useState<number[]>([]);
   const [openMenuOptionIds, setOpenMenuOptionIds] = useState<number[]>([]);
+  const [openGroupMenuIds, setOpenGroupMenuIds] = useState<number[]>([]);
+  const [openGroupItemIds, setOpenGroupItemIds] = useState<number[]>([]);
 
   const [itemForm, setItemForm] = useState({
     group_id: "",
@@ -606,6 +608,22 @@ export default function AdminMenuPage() {
     );
   };
 
+  const toggleGroupMenusOpen = (groupId: number) => {
+    setOpenGroupMenuIds((prev) =>
+      prev.includes(groupId)
+        ? prev.filter((id) => id !== groupId)
+        : [...prev, groupId],
+    );
+  };
+
+  const toggleGroupItemsOpen = (groupId: number) => {
+    setOpenGroupItemIds((prev) =>
+      prev.includes(groupId)
+        ? prev.filter((id) => id !== groupId)
+        : [...prev, groupId],
+    );
+  };
+
   const getGroupsByMenuId = (menuId: number) => {
     return groups.filter((group) =>
       links.some(
@@ -643,8 +661,34 @@ export default function AdminMenuPage() {
     "mb-2 block text-[11px] font-black uppercase tracking-[0.16em] text-zinc-500";
 const compactInputClass =
   "w-full rounded-[8px] border border-zinc-800 bg-[#050505] px-2.5 py-2 text-xs font-bold text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-[#d4af37]/70";
+  const hwangjeScrollClass =
+    "max-h-[650px] overflow-y-auto pr-2 [scrollbar-color:#d4af37_#070707] [scrollbar-width:thin]";
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#070707] pt-9 text-zinc-100">
+      <style jsx global>{`
+        .hwangje-scroll::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+
+        .hwangje-scroll::-webkit-scrollbar-track {
+          background: #070707;
+          border-radius: 999px;
+          border: 1px solid rgba(212, 175, 55, 0.08);
+        }
+
+        .hwangje-scroll::-webkit-scrollbar-thumb {
+          background: linear-gradient(180deg, #d4af37 0%, #7a6320 100%);
+          border-radius: 999px;
+          border: 2px solid #070707;
+        }
+
+        .hwangje-scroll::-webkit-scrollbar-thumb:hover {
+          background: #f0d98a;
+        }
+      `}</style>
+
       <div className="fixed left-0 right-0 top-0 z-[1000] flex h-9 items-center justify-between border-b border-[#d4af3720] bg-[#080808]/95 px-3 text-xs text-zinc-400 backdrop-blur-xl [-webkit-app-region:drag]">
         <button
           type="button"
@@ -1084,132 +1128,185 @@ const compactInputClass =
                   </div>
                 )}
 
-                <div className="space-y-3">
-                  {groups.map((group) => (
-                    <div
-                      key={group.id}
-                      className="rounded-[12px] border border-zinc-800 bg-[#070707] p-4"
-                    >
-                      <div className="grid gap-3 md:grid-cols-[1fr_150px_120px]">
-                        <input
-                          defaultValue={group.name}
-                          onBlur={(e) =>
-                            updateGroup(group.id, { name: e.target.value })
-                          }
-                          className={inputClass}
-                        />
-                        <select
-                          value={group.type}
-                          onChange={(e) =>
-                            updateGroup(group.id, { type: e.target.value })
-                          }
-                          className={inputClass}
-                        >
-                          <option value="single">하나만 선택</option>
-                          <option value="multiple">여러 개 선택</option>
-                        </select>
-                        <label className="flex items-center gap-2 rounded-[10px] border border-zinc-800 bg-[#101010] px-3 py-3 text-sm font-black text-zinc-300">
+                <div className={`${hwangjeScrollClass} hwangje-scroll space-y-3`}>
+                  {groups.map((group) => {
+                    const groupMenusOpen = openGroupMenuIds.includes(group.id);
+                    const groupItemsOpen = openGroupItemIds.includes(group.id);
+                    const linkedMenuNames = getMenuNamesByGroupId(group.id);
+                    const groupItems = getItemsByGroupId(group.id);
+
+                    return (
+                      <div
+                        key={group.id}
+                        className="rounded-[12px] border border-zinc-800 bg-[#070707] p-3"
+                      >
+                        <div className="grid gap-2 md:grid-cols-[1fr_140px_96px]">
                           <input
-                            type="checkbox"
-                            checked={group.required}
-                            onChange={(e) =>
-                              updateGroup(group.id, {
-                                required: e.target.checked,
-                              })
+                            defaultValue={group.name}
+                            onBlur={(e) =>
+                              updateGroup(group.id, { name: e.target.value })
                             }
+                            className={compactInputClass}
                           />
-                          필수
-                        </label>
-                      </div>
+                          <select
+                            value={group.type}
+                            onChange={(e) =>
+                              updateGroup(group.id, { type: e.target.value })
+                            }
+                            className={compactInputClass}
+                          >
+                            <option value="single">하나만 선택</option>
+                            <option value="multiple">여러 개 선택</option>
+                          </select>
+                          <label className="flex items-center justify-center gap-2 rounded-[8px] border border-zinc-800 bg-[#101010] px-2.5 py-2 text-xs font-black text-zinc-300">
+                            <input
+                              type="checkbox"
+                              checked={group.required}
+                              onChange={(e) =>
+                                updateGroup(group.id, {
+                                  required: e.target.checked,
+                                })
+                              }
+                            />
+                            필수
+                          </label>
+                        </div>
 
-                      <div className="mt-3 rounded-[10px] border border-zinc-800 bg-[#101010] p-3">
-                        <div className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
-                          연결 메뉴
-                        </div>
-                        <div className="grid gap-2 md:grid-cols-2">
-                          {menus.map((menu) => {
-                            const checked = links.some(
-                              (link) =>
-                                link.group_id === group.id &&
-                                link.menu_id === menu.id,
-                            );
-                            return (
-                              <button
-                                key={menu.id}
-                                type="button"
-                                onClick={() =>
-                                  toggleGroupMenuConnection(group.id, menu.id)
-                                }
-                                className={`rounded-[9px] border px-2 py-2 text-left text-xs font-black transition ${checked ? "border-[#d4af37] bg-[#d4af37] text-black" : "border-zinc-800 bg-[#070707] text-zinc-500 hover:border-zinc-600"}`}
-                              >
-                                {checked ? "☑ " : "☐ "}
-                                {menu.name}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="mt-3 rounded-[10px] border border-zinc-800 bg-[#101010] p-3">
-                        <div className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
-                          옵션항목
-                        </div>
-                        <div className="grid gap-2 md:grid-cols-2">
-                          {getItemsByGroupId(group.id).map((item) => (
-                            <div
-                              key={item.id}
-                              className="rounded-[10px] border border-zinc-800 bg-[#070707] p-3"
-                            >
-                              <input
-                                defaultValue={item.name}
-                                onBlur={(e) =>
-                                  updateItem(item.id, "name", e.target.value)
-                                }
-                                className={inputClass}
-                              />
-                              <input
-                                defaultValue={item.price}
-                                onBlur={(e) =>
-                                  updateItem(item.id, "price", e.target.value)
-                                }
-                                className={`${inputClass} mt-2 text-[#d4af37]`}
-                              />
-                              <div className="mt-2 grid grid-cols-2 gap-2">
-                                <button
-                                  onClick={() =>
-                                    toggleItemSoldout(item.id, item.is_soldout)
-                                  }
-                                  className={`rounded-[9px] border px-3 py-2 text-xs font-black ${item.is_soldout ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300" : "border-red-500/40 bg-red-950/40 text-red-300"}`}
-                                >
-                                  {item.is_soldout
-                                    ? "판매중 변경"
-                                    : "품절 처리"}
-                                </button>
-                                <button
-                                  onClick={() => deleteItem(item.id)}
-                                  className="rounded-[9px] border border-zinc-700 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-300 hover:border-red-500/40 hover:text-red-300"
-                                >
-                                  삭제
-                                </button>
+                        <div className="mt-2 grid gap-2 md:grid-cols-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleGroupMenusOpen(group.id)}
+                            className="flex items-center justify-between rounded-[9px] border border-zinc-800 bg-[#101010] px-3 py-2 text-left transition hover:border-[#d4af37]/40"
+                          >
+                            <div>
+                              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                                연결 메뉴
+                              </div>
+                              <div className="mt-0.5 text-xs font-bold text-zinc-400">
+                                {linkedMenuNames.length > 0
+                                  ? `${linkedMenuNames.length}개 메뉴 연결됨`
+                                  : "연결 메뉴 없음"}
                               </div>
                             </div>
-                          ))}
-                          {getItemsByGroupId(group.id).length === 0 && (
-                            <div className="rounded-[10px] border border-zinc-800 bg-[#070707] p-4 text-sm font-bold text-zinc-500">
-                              옵션항목 없음
+                            <div className="rounded-md border border-[#d4af37]/30 bg-[#d4af37]/10 px-2 py-1 text-[11px] font-black text-[#d4af37]">
+                              {groupMenusOpen ? "접기 ▲" : "열기 ▼"}
                             </div>
-                          )}
-                        </div>
-                      </div>
+                          </button>
 
-                      <button
-                        onClick={() => deleteGroup(group.id)}
-                        className="mt-3 w-full rounded-[10px] border border-zinc-700 bg-[#111111] px-4 py-3 text-sm font-black text-zinc-300 transition hover:border-red-500/40 hover:text-red-300"
-                      >
-                        옵션그룹 삭제
-                      </button>
-                    </div>
-                  ))}
+                          <button
+                            type="button"
+                            onClick={() => toggleGroupItemsOpen(group.id)}
+                            className="flex items-center justify-between rounded-[9px] border border-zinc-800 bg-[#101010] px-3 py-2 text-left transition hover:border-[#d4af37]/40"
+                          >
+                            <div>
+                              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                                옵션항목
+                              </div>
+                              <div className="mt-0.5 text-xs font-bold text-zinc-400">
+                                {groupItems.length > 0
+                                  ? `${groupItems.length}개 옵션항목`
+                                  : "옵션항목 없음"}
+                              </div>
+                            </div>
+                            <div className="rounded-md border border-[#d4af37]/30 bg-[#d4af37]/10 px-2 py-1 text-[11px] font-black text-[#d4af37]">
+                              {groupItemsOpen ? "접기 ▲" : "열기 ▼"}
+                            </div>
+                          </button>
+                        </div>
+
+                        {groupMenusOpen && (
+                          <div className="mt-2 rounded-[10px] border border-zinc-800 bg-[#101010] p-3">
+                            <div className="grid max-h-[260px] gap-2 overflow-y-auto pr-1 hwangje-scroll md:grid-cols-2">
+                              {menus.map((menu) => {
+                                const checked = links.some(
+                                  (link) =>
+                                    link.group_id === group.id &&
+                                    link.menu_id === menu.id,
+                                );
+                                return (
+                                  <button
+                                    key={menu.id}
+                                    type="button"
+                                    onClick={() =>
+                                      toggleGroupMenuConnection(group.id, menu.id)
+                                    }
+                                    className={`rounded-[8px] border px-2.5 py-2 text-left text-xs font-black transition ${
+                                      checked
+                                        ? "border-[#d4af37] bg-[#d4af37] text-black"
+                                        : "border-zinc-800 bg-[#070707] text-zinc-500 hover:border-zinc-600"
+                                    }`}
+                                  >
+                                    {checked ? "☑ " : "☐ "}
+                                    {menu.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {groupItemsOpen && (
+                          <div className="mt-2 rounded-[10px] border border-zinc-800 bg-[#101010] p-3">
+                            <div className="grid max-h-[360px] gap-2 overflow-y-auto pr-1 hwangje-scroll md:grid-cols-2">
+                              {groupItems.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="rounded-[9px] border border-zinc-800 bg-[#070707] p-2.5"
+                                >
+                                  <input
+                                    defaultValue={item.name}
+                                    onBlur={(e) =>
+                                      updateItem(item.id, "name", e.target.value)
+                                    }
+                                    className={compactInputClass}
+                                  />
+                                  <input
+                                    defaultValue={item.price}
+                                    onBlur={(e) =>
+                                      updateItem(item.id, "price", e.target.value)
+                                    }
+                                    className={`${compactInputClass} mt-2 text-[#d4af37]`}
+                                  />
+                                  <div className="mt-2 grid grid-cols-2 gap-2">
+                                    <button
+                                      onClick={() =>
+                                        toggleItemSoldout(item.id, item.is_soldout)
+                                      }
+                                      className={`rounded-[8px] border px-2.5 py-2 text-[11px] font-black ${
+                                        item.is_soldout
+                                          ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+                                          : "border-red-500/40 bg-red-950/40 text-red-300"
+                                      }`}
+                                    >
+                                      {item.is_soldout ? "판매중 변경" : "품절 처리"}
+                                    </button>
+                                    <button
+                                      onClick={() => deleteItem(item.id)}
+                                      className="rounded-[8px] border border-zinc-700 bg-[#111111] px-2.5 py-2 text-[11px] font-black text-zinc-300 hover:border-red-500/40 hover:text-red-300"
+                                    >
+                                      삭제
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                              {groupItems.length === 0 && (
+                                <div className="rounded-[8px] border border-zinc-800 bg-[#070707] p-3 text-xs font-bold text-zinc-500">
+                                  옵션항목 없음
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        <button
+                          onClick={() => deleteGroup(group.id)}
+                          className="mt-2 w-full rounded-[9px] border border-zinc-700 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-300 transition hover:border-red-500/40 hover:text-red-300"
+                        >
+                          옵션그룹 삭제
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
 
@@ -1234,7 +1331,7 @@ const compactInputClass =
                   </div>
                 )}
 
-                <div className="space-y-2">
+                <div className={`${hwangjeScrollClass} hwangje-scroll space-y-2`}>
                   {menus.map((menu) => {
                     const menuGroups = getGroupsByMenuId(menu.id);
                     const optionOpen = openMenuOptionIds.includes(menu.id);
