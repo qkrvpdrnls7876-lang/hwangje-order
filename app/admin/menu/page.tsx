@@ -135,6 +135,102 @@ export default function AdminMenuPage() {
     fetchAll();
   }, []);
 
+  const isRlsError = (message?: string) => {
+    const lower = (message || "").toLowerCase();
+
+    return (
+      lower.includes("row-level security") ||
+      lower.includes("rls") ||
+      lower.includes("policy")
+    );
+  };
+
+  const getRlsPolicyMessage = () => {
+    return [
+      "옵션그룹 연결 테이블 권한이 막혀있습니다.",
+      "",
+      "Supabase SQL Editor에서 menu_option_group_menus 테이블 RLS 정책을 열어줘야 합니다.",
+      "",
+      "실행할 SQL:",
+      "",
+      "alter table public.menu_option_group_menus enable row level security;",
+      "",
+      "drop policy if exists \"allow anon select menu option group menus\" on public.menu_option_group_menus;",
+      "drop policy if exists \"allow anon insert menu option group menus\" on public.menu_option_group_menus;",
+      "drop policy if exists \"allow anon delete menu option group menus\" on public.menu_option_group_menus;",
+      "",
+      "create policy \"allow anon select menu option group menus\"",
+      "on public.menu_option_group_menus",
+      "for select",
+      "to anon",
+      "using (true);",
+      "",
+      "create policy \"allow anon insert menu option group menus\"",
+      "on public.menu_option_group_menus",
+      "for insert",
+      "to anon",
+      "with check (true);",
+      "",
+      "create policy \"allow anon delete menu option group menus\"",
+      "on public.menu_option_group_menus",
+      "for delete",
+      "to anon",
+      "using (true);",
+    ].join("\n");
+  };
+
+  const insertGroupMenuLinks = async (groupId: number, menuIds: number[]) => {
+    const nextLinks = menuIds.map((menuId) => ({
+      menu_id: menuId,
+      group_id: groupId,
+    }));
+
+    const { error } = await supabase
+      .from("menu_option_group_menus")
+      .insert(nextLinks);
+
+    if (error) {
+      if (isRlsError(error.message)) {
+        alert(getRlsPolicyMessage());
+        return false;
+      }
+
+      alert("옵션그룹 연결 실패: " + error.message);
+      return false;
+    }
+
+    return true;
+  };
+
+  const deleteGroupMenuLinks = async (target: {
+    group_id?: number;
+    menu_id?: number;
+  }) => {
+    let query = supabase.from("menu_option_group_menus").delete();
+
+    if (target.group_id) {
+      query = query.eq("group_id", target.group_id);
+    }
+
+    if (target.menu_id) {
+      query = query.eq("menu_id", target.menu_id);
+    }
+
+    const { error } = await query;
+
+    if (error) {
+      if (isRlsError(error.message)) {
+        alert(getRlsPolicyMessage());
+        return false;
+      }
+
+      alert("옵션그룹 연결 삭제 실패: " + error.message);
+      return false;
+    }
+
+    return true;
+  };
+
   const addMenu = async () => {
     if (!form.name.trim()) {
       alert("메뉴명을 입력하세요");
@@ -206,7 +302,7 @@ export default function AdminMenuPage() {
 
     if (!ok) return;
 
-    await supabase.from("menu_option_group_menus").delete().eq("menu_id", id);
+    await deleteGroupMenuLinks({ menu_id: id });
 
     const { error } = await supabase.from("menus").delete().eq("id", id);
 
@@ -268,17 +364,13 @@ export default function AdminMenuPage() {
       return;
     }
 
-    const insertLinks = selectedMenuIds.map((menuId) => ({
-      menu_id: menuId,
-      group_id: data.id,
-    }));
+    const linked = await insertGroupMenuLinks(data.id, selectedMenuIds);
 
-    const { error: linkError } = await supabase
-      .from("menu_option_group_menus")
-      .insert(insertLinks);
-
-    if (linkError) {
-      alert("옵션그룹 연결 실패: " + linkError.message);
+    if (!linked) {
+      alert(
+        "옵션그룹 자체는 생성됐지만 연결 저장이 막혔습니다.\nSupabase RLS 정책 적용 후 다시 연결해주세요.",
+      );
+      fetchAll();
       return;
     }
 
@@ -297,7 +389,7 @@ export default function AdminMenuPage() {
 
     if (!ok) return;
 
-    await supabase.from("menu_option_group_menus").delete().eq("group_id", id);
+    await deleteGroupMenuLinks({ group_id: id });
 
     const { error } = await supabase
       .from("menu_option_groups")
@@ -336,15 +428,9 @@ export default function AdminMenuPage() {
 
     if (exists) return;
 
-    const { error } = await supabase.from("menu_option_group_menus").insert({
-      group_id: groupId,
-      menu_id: menuId,
-    });
+    const linked = await insertGroupMenuLinks(groupId, [menuId]);
 
-    if (error) {
-      alert("메뉴 연결 실패: " + error.message);
-      return;
-    }
+    if (!linked) return;
 
     fetchAll();
   };
@@ -365,16 +451,12 @@ export default function AdminMenuPage() {
       return;
     }
 
-    const { error } = await supabase
-      .from("menu_option_group_menus")
-      .delete()
-      .eq("group_id", groupId)
-      .eq("menu_id", menuId);
+    const deleted = await deleteGroupMenuLinks({
+      group_id: groupId,
+      menu_id: menuId,
+    });
 
-    if (error) {
-      alert("메뉴 연결 해제 실패: " + error.message);
-      return;
-    }
+    if (!deleted) return;
 
     // menu_option_groups.menu_id가 해제한 메뉴와 같고 다른 연결이 있으면 대표 menu_id 변경
     if (group?.menu_id === menuId) {
@@ -522,9 +604,14 @@ export default function AdminMenuPage() {
           메뉴관리
         </h1>
 
-        <p className="mb-8 text-zinc-400">
+        <p className="mb-4 text-zinc-400">
           메뉴 추가 · 가격 수정 · 품절 · 공용 옵션그룹 · 옵션항목 관리
         </p>
+
+        <div className="mb-8 rounded-2xl border border-red-500/30 bg-red-950/30 p-4 text-sm font-bold leading-relaxed text-red-200">
+          옵션그룹 연결 실패가 뜨면 Supabase에서 menu_option_group_menus 테이블 RLS 정책이 막힌 상태입니다.
+          이 페이지는 오류 내용을 정확히 보여주고, 필요한 SQL을 안내합니다.
+        </div>
 
         <div className="mb-8 rounded-3xl border border-yellow-400/20 bg-zinc-900 p-5">
           <h2 className="mb-4 text-2xl font-black text-yellow-400">새 메뉴 추가</h2>

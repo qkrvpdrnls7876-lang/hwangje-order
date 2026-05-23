@@ -101,13 +101,10 @@ export default function AdminPage() {
 
   const getTodayOrderNumber = (orderId: number) => {
     const sortedOrders = [...orders].sort(
-      (a, b) =>
-        new Date(a.created_at).getTime() -
-        new Date(b.created_at).getTime()
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
 
     const index = sortedOrders.findIndex((order) => order.id === orderId);
-
     return index >= 0 ? index + 1 : orderId;
   };
 
@@ -186,8 +183,10 @@ export default function AdminPage() {
     const msg = new SpeechSynthesisUtterance(
       `신규 주문이 들어왔습니다. ${order.customer || "고객"}님 ${order.total.toLocaleString()}원 주문`
     );
+
     msg.lang = "ko-KR";
     msg.rate = 1;
+
     speechSynthesis.cancel();
     speechSynthesis.speak(msg);
   };
@@ -455,10 +454,7 @@ export default function AdminPage() {
       return;
     }
 
-    const { error } = await supabase
-      .from("orders")
-      .update({ status })
-      .eq("id", order.id);
+    const { error } = await supabase.from("orders").update({ status }).eq("id", order.id);
 
     if (error) {
       alert(error.message);
@@ -492,7 +488,6 @@ export default function AdminPage() {
     fetchOrders();
   };
 
-  
   const testPrintReceipt = async () => {
     const text = [
       "황제떡볶이",
@@ -622,37 +617,27 @@ export default function AdminPage() {
     printWindow.document.close();
   };
 
-
-const toggleOpen = (id: number) => {
+  const toggleOpen = (id: number) => {
     setOpenOrderIds((prev) =>
-      prev.includes(id)
-        ? prev.filter((orderId) => orderId !== id)
-        : [...prev, id]
+      prev.includes(id) ? prev.filter((orderId) => orderId !== id) : [...prev, id]
     );
   };
 
-  
   const getFraudInfo = (order: Order) => {
     const sameDeviceOrders = orders.filter(
       (o) => o.device_id && o.device_id === order.device_id
     );
 
-    const differentPhones = new Set(
-      sameDeviceOrders.map((o) =>
-        cleanPhone(o.phone)
-      )
-    );
+    const differentPhones = new Set(sameDeviceOrders.map((o) => cleanPhone(o.phone)));
 
     return {
       sameDevice: sameDeviceOrders.length >= 3,
       phoneChanged: differentPhones.size >= 2,
-      suspicious:
-        sameDeviceOrders.length >= 3 &&
-        differentPhones.size >= 2,
+      suspicious: sameDeviceOrders.length >= 3 && differentPhones.size >= 2,
     };
   };
 
-const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string) => {
     if (status === "접수대기") return "bg-red-600 text-white";
     if (status === "접수완료") return "bg-orange-500 text-white";
     if (status === "조리중") return "bg-blue-600 text-white";
@@ -706,9 +691,7 @@ const getStatusColor = (status: string) => {
                 .map(
                   (option) =>
                     `  - ${option.groupName}:${option.optionName}${
-                      option.price > 0
-                        ? ` +${option.price.toLocaleString()}`
-                        : ""
+                      option.price > 0 ? ` +${option.price.toLocaleString()}` : ""
                     }`
                 )
                 .join("\n")
@@ -846,46 +829,23 @@ const getStatusColor = (status: string) => {
   };
 
   return (
-    <main className="min-h-screen bg-[#050505] bg-[radial-gradient(circle_at_top,#3b2f0b_0%,#050505_35%)] p-4 text-white md:p-6">
+    <main className="min-h-screen overflow-x-hidden bg-[#050505] bg-[radial-gradient(circle_at_top,#3b2f0b_0%,#050505_35%)] px-3 py-4 text-white sm:px-4 md:p-6">
       <div className="fixed right-4 top-4 z-50 hidden w-[210px] rounded-3xl border border-[#d4af3735] bg-black/85 p-3 shadow-[0_0_35px_rgba(212,175,55,.18)] backdrop-blur-xl xl:block">
         <div className="mb-2 rounded-2xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] px-3 py-2 text-center text-sm font-black text-black">
           황제 바로가기
         </div>
 
         <div className="grid gap-2">
-          <a
-            href="/admin/sales"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-2xl border border-[#d4af3728] bg-[#080808] px-3 py-3 text-sm font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.08)] transition hover:border-[#d4af37] hover:bg-[#17130a]"
-          >
+          <a href="/admin/sales" target="_blank" rel="noopener noreferrer" className="rounded-2xl border border-[#d4af3728] bg-[#080808] px-3 py-3 text-sm font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.08)] transition hover:border-[#d4af37] hover:bg-[#17130a]">
             📊 매출관리
           </a>
-
-          <a
-            href="/admin/menu"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-2xl border border-[#d4af3728] bg-[#080808] px-3 py-3 text-sm font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.08)] transition hover:border-[#d4af37] hover:bg-[#17130a]"
-          >
+          <a href="/admin/menu" target="_blank" rel="noopener noreferrer" className="rounded-2xl border border-[#d4af3728] bg-[#080808] px-3 py-3 text-sm font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.08)] transition hover:border-[#d4af37] hover:bg-[#17130a]">
             🍜 메뉴수정
           </a>
-
-          <a
-            href="/kitchen"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-2xl border border-[#d4af3728] bg-[#080808] px-3 py-3 text-sm font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.08)] transition hover:border-[#d4af37] hover:bg-[#17130a]"
-          >
+          <a href="/kitchen" target="_blank" rel="noopener noreferrer" className="rounded-2xl border border-[#d4af3728] bg-[#080808] px-3 py-3 text-sm font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.08)] transition hover:border-[#d4af37] hover:bg-[#17130a]">
             👨‍🍳 주방화면
           </a>
-
-          <a
-            href="/rider"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-2xl border border-[#d4af3728] bg-[#080808] px-3 py-3 text-sm font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.08)] transition hover:border-[#d4af37] hover:bg-[#17130a]"
-          >
+          <a href="/rider" target="_blank" rel="noopener noreferrer" className="rounded-2xl border border-[#d4af3728] bg-[#080808] px-3 py-3 text-sm font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.08)] transition hover:border-[#d4af37] hover:bg-[#17130a]">
             🛵 라이더화면
           </a>
         </div>
@@ -896,9 +856,9 @@ const getStatusColor = (status: string) => {
       </audio>
 
       {popupOrder && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur">
-          <div className="w-[92%] max-w-lg rounded-3xl border border-[#d4af37] bg-gradient-to-b from-[#17130a] to-black p-6 shadow-[0_0_50px_rgba(212,175,55,.35)]">
-            <div className="mb-3 text-center text-4xl font-black text-[#f4d56d]">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 p-3 backdrop-blur">
+          <div className="w-full max-w-lg rounded-3xl border border-[#d4af37] bg-gradient-to-b from-[#17130a] to-black p-5 shadow-[0_0_50px_rgba(212,175,55,.35)] sm:p-6">
+            <div className="mb-3 text-center text-3xl font-black text-[#f4d56d] sm:text-4xl">
               🔔 신규 주문
             </div>
 
@@ -910,7 +870,7 @@ const getStatusColor = (status: string) => {
               <div className="text-zinc-400">
                 오늘주문 #{getTodayOrderNumber(popupOrder.id)}
               </div>
-              <div className="mt-2 text-3xl font-black">{popupOrder.customer}</div>
+              <div className="mt-2 text-2xl font-black sm:text-3xl">{popupOrder.customer}</div>
               <div className="mt-2 text-xl text-[#f4d56d]">
                 {popupOrder.total.toLocaleString()}원
               </div>
@@ -920,29 +880,25 @@ const getStatusColor = (status: string) => {
 
               <div className="mt-3 rounded-xl border border-yellow-400/30 bg-black/70 p-3 text-sm font-black">
                 {popupOrder.customer_type === "new" ? (
-                  <span className="text-green-400">
-                    🆕 첫 주문 고객 · 1번째 주문
-                  </span>
+                  <span className="text-green-400">🆕 첫 주문 고객 · 1번째 주문</span>
                 ) : popupOrder.customer_type === "existing" ? (
                   <span className="text-yellow-400">
                     ⭐ 기존 고객 · 🔥 {popupOrder.customer_order_count}번째 주문
                   </span>
                 ) : (
-                  <span className="text-zinc-400">
-                    고객 주문횟수 정보 없음
-                  </span>
+                  <span className="text-zinc-400">고객 주문횟수 정보 없음</span>
                 )}
               </div>
             </div>
 
-            <div className="mt-5 grid grid-cols-3 gap-3">
+            <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
               <button
                 onClick={() => {
                   printReceipt(popupOrder);
                   changeStatus(popupOrder, "접수완료");
                   setPopupOrder(null);
                 }}
-                className="rounded-2xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] py-4 text-lg font-black text-black shadow-[0_0_25px_rgba(212,175,55,.35)]"
+                className="rounded-2xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] py-4 text-sm font-black text-black shadow-[0_0_25px_rgba(212,175,55,.35)] sm:text-lg"
               >
                 접수+빌지
               </button>
@@ -954,14 +910,14 @@ const getStatusColor = (status: string) => {
                   changeStatus(popupOrder, "주문취소");
                   setPopupOrder(null);
                 }}
-                className="rounded-2xl bg-red-600 py-4 text-lg font-black text-white"
+                className="rounded-2xl bg-red-600 py-4 text-sm font-black text-white sm:text-lg"
               >
                 취소
               </button>
 
               <button
                 onClick={() => setPopupOrder(null)}
-                className="rounded-2xl bg-zinc-700 py-4 text-lg font-black"
+                className="rounded-2xl bg-zinc-700 py-4 text-sm font-black sm:text-lg"
               >
                 닫기
               </button>
@@ -970,56 +926,33 @@ const getStatusColor = (status: string) => {
         </div>
       )}
 
-      <div className="mx-auto max-w-[1600px]">
-        <div className="mb-6 rounded-3xl bg-zinc-900 p-6">
-          <div className="flex items-center justify-between gap-6">
+      <div className="mx-auto w-full max-w-[1600px]">
+        <div className="mb-4 rounded-3xl bg-zinc-900 p-4 sm:mb-6 sm:p-6">
+          <div className="flex flex-col gap-4">
             <div>
-              <h1 className="bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] bg-clip-text text-4xl font-black text-transparent">
+              <h1 className="bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] bg-clip-text text-3xl font-black text-transparent sm:text-4xl">
                 황제 관리자
               </h1>
 
-              <p className="mt-2 text-lg text-zinc-400">
+              <p className="mt-2 text-sm text-zinc-400 sm:text-lg">
                 새벽 3시 기준 오늘 영업일 주문만 표시
               </p>
 
-              <div className="mt-3 inline-flex rounded-2xl border border-yellow-400/20 bg-black/60 px-4 py-2 text-lg font-black text-yellow-400">
+              <div className="mt-3 inline-flex rounded-2xl border border-yellow-400/20 bg-black/60 px-4 py-2 text-sm font-black text-yellow-400 sm:text-lg">
                 진행주문 {activeOrderCount}건 · 자동 예상 {autoEstimatedTime}
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4 xl:hidden">
-                <a
-                  href="/admin/sales"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-2xl border border-[#d4af3735] bg-black/70 px-3 py-3 text-center text-sm font-black text-[#f4d56d]"
-                >
+                <a href="/admin/sales" target="_blank" rel="noopener noreferrer" className="rounded-2xl border border-[#d4af3735] bg-black/70 px-3 py-3 text-center text-sm font-black text-[#f4d56d]">
                   📊 매출
                 </a>
-
-                <a
-                  href="/admin/menu"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-2xl border border-[#d4af3735] bg-black/70 px-3 py-3 text-center text-sm font-black text-[#f4d56d]"
-                >
+                <a href="/admin/menu" target="_blank" rel="noopener noreferrer" className="rounded-2xl border border-[#d4af3735] bg-black/70 px-3 py-3 text-center text-sm font-black text-[#f4d56d]">
                   🍜 메뉴
                 </a>
-
-                <a
-                  href="/kitchen"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-2xl border border-[#d4af3735] bg-black/70 px-3 py-3 text-center text-sm font-black text-[#f4d56d]"
-                >
+                <a href="/kitchen" target="_blank" rel="noopener noreferrer" className="rounded-2xl border border-[#d4af3735] bg-black/70 px-3 py-3 text-center text-sm font-black text-[#f4d56d]">
                   👨‍🍳 주방
                 </a>
-
-                <a
-                  href="/rider"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-2xl border border-[#d4af3735] bg-black/70 px-3 py-3 text-center text-sm font-black text-[#f4d56d]"
-                >
+                <a href="/rider" target="_blank" rel="noopener noreferrer" className="rounded-2xl border border-[#d4af3735] bg-black/70 px-3 py-3 text-center text-sm font-black text-[#f4d56d]">
                   🛵 라이더
                 </a>
               </div>
@@ -1027,83 +960,63 @@ const getStatusColor = (status: string) => {
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button
-              onClick={enableSound}
-              className={`rounded-xl px-3 py-2 text-sm font-black transition ${
-                soundEnabled ? "bg-green-600 text-white" : "bg-yellow-400 text-black"
-              }`}
-            >
+            <button onClick={enableSound} className={`rounded-xl px-3 py-2 text-sm font-black transition ${soundEnabled ? "bg-green-600 text-white" : "bg-yellow-400 text-black"}`}>
               {soundEnabled ? "🔊 ON" : "🔊 알림"}
             </button>
 
-            <button
-              onClick={requestNotification}
-              className="rounded-xl bg-purple-600 px-3 py-2 text-sm font-black"
-            >
+            <button onClick={requestNotification} className="rounded-xl bg-purple-600 px-3 py-2 text-sm font-black">
               🔔 푸시
             </button>
 
-            <button
-              onClick={playAlarm}
-              className="rounded-xl bg-zinc-700 px-3 py-2 text-sm font-black"
-            >
+            <button onClick={playAlarm} className="rounded-xl bg-zinc-700 px-3 py-2 text-sm font-black">
               테스트
             </button>
 
-            <button
-              onClick={stopAlarm}
-              className="rounded-xl bg-red-600 px-3 py-2 text-sm font-black"
-            >
+            <button onClick={stopAlarm} className="rounded-xl bg-red-600 px-3 py-2 text-sm font-black">
               OFF
             </button>
-            
-            <button
-              onClick={testPrintReceipt}
-              className="rounded-xl bg-emerald-700 px-3 py-2 text-sm font-black"
-            >
+
+            <button onClick={testPrintReceipt} className="rounded-xl bg-emerald-700 px-3 py-2 text-sm font-black">
               🧾 테스트출력
             </button>
           </div>
         </div>
 
-        <div className="mb-6 ml-8 mr-[260px] grid grid-cols-2 gap-2 md:grid-cols-6">
-          <div className="rounded-xl border border-[#d4af3720] bg-[#0d0d0d]/95 p-2 shadow-[0_0_10px_rgba(212,175,55,.08)]">
-            <div className="text-[11px] text-zinc-400">오늘 매출</div>
-            <div className="mt-1 text-lg font-black text-yellow-400">
+        {/* 모바일 깨짐 수정 핵심: ml-8/mr-[260px] 제거, xl 이상에서만 우측 고정메뉴 여백 적용 */}
+        <div className="mb-4 grid w-full grid-cols-2 gap-2 sm:mb-6 md:grid-cols-3 xl:mr-[240px] xl:grid-cols-6">
+          <div className="min-w-0 rounded-xl border border-[#d4af3720] bg-[#0d0d0d]/95 p-3 shadow-[0_0_10px_rgba(212,175,55,.08)]">
+            <div className="text-xs text-zinc-400">오늘 매출</div>
+            <div className="mt-1 break-words text-lg font-black text-yellow-400">
               {todaySales.toLocaleString()}원
             </div>
           </div>
 
-          <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-2">
-            <div className="text-[11px] text-zinc-400">주문</div>
-            <div className="mt-1 text-lg font-black">
-              {payableOrders.length}건
-            </div>
+          <div className="min-w-0 rounded-xl border border-zinc-700 bg-zinc-900 p-3">
+            <div className="text-xs text-zinc-400">주문</div>
+            <div className="mt-1 text-lg font-black">{payableOrders.length}건</div>
           </div>
 
-          <div className="rounded-xl border border-red-500/30 bg-zinc-900 p-2">
-            <div className="text-[11px] text-zinc-400">대기/접수</div>
+          <div className="min-w-0 rounded-xl border border-red-500/30 bg-zinc-900 p-3">
+            <div className="text-xs text-zinc-400">대기/접수</div>
             <div className="mt-1 text-lg font-black text-red-400">
               {waitingCount + acceptedCount}건
             </div>
           </div>
 
-          <div className="rounded-xl border border-blue-500/30 bg-zinc-900 p-2">
-            <div className="text-[11px] text-zinc-400">조리중</div>
-            <div className="mt-1 text-lg font-black text-blue-400">
-              {cookingCount}건
-            </div>
+          <div className="min-w-0 rounded-xl border border-blue-500/30 bg-zinc-900 p-3">
+            <div className="text-xs text-zinc-400">조리중</div>
+            <div className="mt-1 text-lg font-black text-blue-400">{cookingCount}건</div>
           </div>
 
-          <div className="rounded-xl border border-green-500/30 bg-zinc-900 p-2">
-            <div className="text-[11px] text-zinc-400">배달/입금</div>
+          <div className="min-w-0 rounded-xl border border-green-500/30 bg-zinc-900 p-3">
+            <div className="text-xs text-zinc-400">배달/입금</div>
             <div className="mt-1 text-lg font-black text-green-400">
               {deliveryCount}/{transferCount}
             </div>
           </div>
 
-          <div className="rounded-xl border border-yellow-400/30 bg-zinc-900 p-2">
-            <div className="text-[11px] text-zinc-400">자동 예상</div>
+          <div className="min-w-0 rounded-xl border border-yellow-400/30 bg-zinc-900 p-3">
+            <div className="text-xs text-zinc-400">자동 예상</div>
             <div className="mt-1 text-lg font-black text-yellow-400">
               {autoEstimatedTime}
             </div>
@@ -1116,7 +1029,7 @@ const getStatusColor = (status: string) => {
           </div>
         )}
 
-        <div className="space-y-4">
+        <div className="space-y-4 xl:mr-[240px]">
           {orders.map((order) => {
             const isOpen = openOrderIds.includes(order.id);
 
@@ -1125,44 +1038,38 @@ const getStatusColor = (status: string) => {
                 key={order.id}
                 className="overflow-hidden rounded-3xl border border-[#d4af3735] bg-gradient-to-b from-[#111111] to-[#050505] shadow-[0_0_20px_rgba(212,175,55,0.12)] transition-all duration-300 hover:border-[#d4af37] hover:shadow-[0_0_35px_rgba(212,175,55,0.28)]"
               >
-                <div className="bg-zinc-900 p-5">
-                  <div className="mb-3 flex justify-between gap-3">
-                    <div>
+                <div className="bg-zinc-900 p-4 sm:p-5">
+                  <div className="mb-3 flex flex-col justify-between gap-3 sm:flex-row">
+                    <div className="min-w-0">
                       <div className="text-sm font-bold text-zinc-500">
                         오늘주문 #{getTodayOrderNumber(order.id)} · 🕒{" "}
                         {formatOrderTime(order.created_at)}
                       </div>
 
-                      <div className="text-2xl font-black">{order.customer}</div>
+                      <div className="break-words text-2xl font-black">
+                        {order.customer}
+                      </div>
 
                       <div className="mt-2 inline-flex rounded-xl border border-yellow-400/30 bg-black/70 px-3 py-2 text-sm font-black">
                         {order.customer_type === "new" ? (
-                          <span className="text-green-400">
-                            🆕 첫 주문 고객 · 1번째 주문
-                          </span>
+                          <span className="text-green-400">🆕 첫 주문 고객 · 1번째 주문</span>
                         ) : order.customer_type === "existing" ? (
                           <span className="text-yellow-400">
                             ⭐ 기존 고객 · 🔥 {order.customer_order_count}번째 주문
                           </span>
                         ) : (
-                          <span className="text-zinc-400">
-                            고객 주문횟수 정보 없음
-                          </span>
+                          <span className="text-zinc-400">고객 주문횟수 정보 없음</span>
                         )}
                       </div>
                     </div>
 
-                    <div
-                      className={`h-fit rounded-xl px-4 py-2 text-sm font-black ${getStatusColor(
-                        order.status
-                      )}`}
-                    >
+                    <div className={`h-fit w-fit rounded-xl px-4 py-2 text-sm font-black ${getStatusColor(order.status)}`}>
                       {order.status}
                     </div>
                   </div>
 
-                  <div className="text-zinc-300">📞 {order.phone}</div>
-                  <div className="text-zinc-300">📍 {order.address}</div>
+                  <div className="break-words text-zinc-300">📞 {order.phone}</div>
+                  <div className="break-words text-zinc-300">📍 {order.address}</div>
 
                   {(() => {
                     const fraud = getFraudInfo(order);
@@ -1181,7 +1088,7 @@ const getStatusColor = (status: string) => {
                         )}
 
                         {fraud.suspicious && (
-                          <div className="rounded-xl bg-red-700 px-3 py-2 text-sm font-black animate-pulse">
+                          <div className="animate-pulse rounded-xl bg-red-700 px-3 py-2 text-sm font-black">
                             🚨 의심 주문
                           </div>
                         )}
@@ -1195,10 +1102,10 @@ const getStatusColor = (status: string) => {
                         order.payment_method === "계좌이체"
                           ? "bg-green-600 text-white"
                           : order.payment_method === "만나서 카드결제"
-                          ? "bg-blue-600 text-white"
-                          : order.payment_method === "만나서 현금결제"
-                          ? "bg-yellow-400 text-black"
-                          : "bg-zinc-700 text-white"
+                            ? "bg-blue-600 text-white"
+                            : order.payment_method === "만나서 현금결제"
+                              ? "bg-yellow-400 text-black"
+                              : "bg-zinc-700 text-white"
                       }`}
                     >
                       💳 결제: {order.payment_method || "미설정"}
@@ -1213,18 +1120,13 @@ const getStatusColor = (status: string) => {
 
                   <div className="mt-3 rounded-xl border border-zinc-800 bg-black/60 p-3">
                     <div className="mb-2 flex items-center justify-between gap-3">
-                      <div className="text-sm font-black text-yellow-400">
-                        메뉴상세
-                      </div>
-                      <button
-                        onClick={() => toggleOpen(order.id)}
-                        className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-black"
-                      >
+                      <div className="text-sm font-black text-yellow-400">메뉴상세</div>
+                      <button onClick={() => toggleOpen(order.id)} className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-black">
                         {isOpen ? "요청접기" : "요청보기"}
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 xl:grid-cols-3 2xl:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                       {menuLines(order.menu).map((item, index) => (
                         <div key={index} className="rounded-lg bg-zinc-900 p-2.5">
                           <div className="flex items-start justify-between gap-2">
@@ -1240,13 +1142,8 @@ const getStatusColor = (status: string) => {
                           {item.options.length > 0 && (
                             <div className="mt-2 space-y-1">
                               {item.options.map((option, optionIndex) => (
-                                <div
-                                  key={optionIndex}
-                                  className="rounded-md bg-black/80 px-2 py-1 text-[12px] font-bold leading-tight text-zinc-300"
-                                >
-                                  <span className="text-zinc-500">
-                                    {option.groupName}:{" "}
-                                  </span>
+                                <div key={optionIndex} className="rounded-md bg-black/80 px-2 py-1 text-[12px] font-bold leading-tight text-zinc-300">
+                                  <span className="text-zinc-500">{option.groupName}: </span>
                                   <span>{option.optionName}</span>
                                   {option.price > 0 && (
                                     <span className="text-yellow-400">
@@ -1267,7 +1164,7 @@ const getStatusColor = (status: string) => {
                     </div>
                   </div>
 
-                  <div className="mt-4 flex justify-between gap-4">
+                  <div className="mt-4 flex flex-col justify-between gap-4 sm:flex-row">
                     <div>
                       <div className="text-zinc-400">총 결제금액</div>
 
@@ -1275,15 +1172,14 @@ const getStatusColor = (status: string) => {
                         {order.total.toLocaleString()}원
                       </div>
 
-                      {order.delivery_fee !== null &&
-                        order.delivery_fee !== undefined && (
-                          <div className="mt-1 text-sm font-bold text-zinc-400">
-                            배달비 {order.delivery_fee.toLocaleString()}원
-                            {order.delivery_distance_km !== null &&
-                              order.delivery_distance_km !== undefined &&
-                              ` (${Number(order.delivery_distance_km).toFixed(1)}km)`}
-                          </div>
-                        )}
+                      {order.delivery_fee !== null && order.delivery_fee !== undefined && (
+                        <div className="mt-1 text-sm font-bold text-zinc-400">
+                          배달비 {order.delivery_fee.toLocaleString()}원
+                          {order.delivery_distance_km !== null &&
+                            order.delivery_distance_km !== undefined &&
+                            ` (${Number(order.delivery_distance_km).toFixed(1)}km)`}
+                        </div>
+                      )}
 
                       {order.stamp_discount && order.stamp_discount > 0 && (
                         <div className="mt-1 text-sm font-bold text-green-400">
@@ -1300,10 +1196,7 @@ const getStatusColor = (status: string) => {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => toggleOpen(order.id)}
-                      className="h-fit rounded-xl bg-zinc-800 px-4 py-3 font-bold"
-                    >
+                    <button onClick={() => toggleOpen(order.id)} className="h-fit w-full rounded-xl bg-zinc-800 px-4 py-3 font-bold sm:w-auto">
                       {isOpen ? "요청접기" : "요청보기"}
                     </button>
                   </div>
@@ -1313,7 +1206,6 @@ const getStatusColor = (status: string) => {
                   <div className="border-t border-zinc-800 p-3">
                     <div className="rounded-lg bg-zinc-900 p-3">
                       <div className="mb-1 text-sm text-zinc-400">요청사항</div>
-
                       <div className="text-sm leading-relaxed">
                         {order.memo?.trim() ? order.memo : "요청사항 없음"}
                       </div>
@@ -1322,11 +1214,9 @@ const getStatusColor = (status: string) => {
                 )}
 
                 <div className="border-t border-zinc-800 p-4">
-                  <div className="mb-3 text-sm font-bold text-zinc-400">
-                    예상시간 설정
-                  </div>
+                  <div className="mb-3 text-sm font-bold text-zinc-400">예상시간 설정</div>
 
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                     {estimatedTimes.map((time) => (
                       <button
                         key={time}
@@ -1341,59 +1231,24 @@ const getStatusColor = (status: string) => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 p-4 md:grid-cols-6">
-                  <button
-                    disabled={!canChangeStatus(order, "접수완료")}
-                    onClick={() => changeStatus(order, "접수완료")}
-                    className={statusButtonClass(
-                      order,
-                      "접수완료",
-                      "rounded-xl bg-orange-500 py-3 font-bold"
-                    )}
-                  >
+                <div className="grid grid-cols-2 gap-2 p-4 md:grid-cols-3 2xl:grid-cols-6">
+                  <button disabled={!canChangeStatus(order, "접수완료")} onClick={() => changeStatus(order, "접수완료")} className={statusButtonClass(order, "접수완료", "rounded-xl bg-orange-500 py-3 font-bold")}>
                     접수
                   </button>
 
-                  <button
-                    disabled={!canChangeStatus(order, "조리중")}
-                    onClick={() => changeStatus(order, "조리중")}
-                    className={statusButtonClass(
-                      order,
-                      "조리중",
-                      "rounded-xl bg-blue-600 py-3 font-bold"
-                    )}
-                  >
+                  <button disabled={!canChangeStatus(order, "조리중")} onClick={() => changeStatus(order, "조리중")} className={statusButtonClass(order, "조리중", "rounded-xl bg-blue-600 py-3 font-bold")}>
                     조리중
                   </button>
 
-                  <button
-                    disabled={!canChangeStatus(order, "배달중")}
-                    onClick={() => changeStatus(order, "배달중")}
-                    className={statusButtonClass(
-                      order,
-                      "배달중",
-                      "rounded-xl bg-green-600 py-3 font-bold"
-                    )}
-                  >
+                  <button disabled={!canChangeStatus(order, "배달중")} onClick={() => changeStatus(order, "배달중")} className={statusButtonClass(order, "배달중", "rounded-xl bg-green-600 py-3 font-bold")}>
                     배달중
                   </button>
 
-                  <button
-                    disabled={!canChangeStatus(order, "완료")}
-                    onClick={() => changeStatus(order, "완료")}
-                    className={statusButtonClass(
-                      order,
-                      "완료",
-                      "rounded-xl bg-yellow-400 py-3 font-bold text-black"
-                    )}
-                  >
+                  <button disabled={!canChangeStatus(order, "완료")} onClick={() => changeStatus(order, "완료")} className={statusButtonClass(order, "완료", "rounded-xl bg-yellow-400 py-3 font-bold text-black")}>
                     완료
                   </button>
 
-                  <button
-                    onClick={() => printReceipt(order)}
-                    className="rounded-xl border border-[#d4af37] bg-gradient-to-b from-[#302300] to-[#0d0d0d] py-3 font-black text-[#f4d56d] shadow-[0_0_15px_rgba(212,175,55,.3)] hover:shadow-[0_0_25px_rgba(212,175,55,.6)]"
-                  >
+                  <button onClick={() => printReceipt(order)} className="rounded-xl border border-[#d4af37] bg-gradient-to-b from-[#302300] to-[#0d0d0d] py-3 font-black text-[#f4d56d] shadow-[0_0_15px_rgba(212,175,55,.3)] hover:shadow-[0_0_25px_rgba(212,175,55,.6)]">
                     빌지출력
                   </button>
 
@@ -1405,11 +1260,7 @@ const getStatusColor = (status: string) => {
                         changeStatus(order, "주문취소");
                       }
                     }}
-                    className={statusButtonClass(
-                      order,
-                      "주문취소",
-                      "rounded-xl bg-zinc-700 py-3 font-bold"
-                    )}
+                    className={statusButtonClass(order, "주문취소", "rounded-xl bg-zinc-700 py-3 font-bold")}
                   >
                     취소
                   </button>
@@ -1426,5 +1277,5 @@ const getStatusColor = (status: string) => {
         </div>
       </div>
     </main>
-   );
+  );
 }
