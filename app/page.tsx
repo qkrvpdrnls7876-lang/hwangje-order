@@ -1406,17 +1406,35 @@ return groups.filter(
               </div>
             </div>
 
-            <div className="mt-1 text-[11px] font-bold leading-relaxed text-[#fff2b8] md:text-xs">
-              {storeStatus.scheduleText}
-            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
 
-            <div
-              className={`mt-1 text-[11px] font-black md:text-xs ${
-                storeStatus.isOpen ? "text-green-300" : "text-red-300"
-              }`}
-            >
-              {storeStatus.message}
-            </div>
+<div className="rounded-xl border border-[#d4af3720] bg-[#111111]/80 p-2">
+<div className="text-xs font-black text-[#f4d56d]">월 · 목 · 금</div>
+<div className="mt-1 text-[11px] text-zinc-300">오후 4시 ~ 새벽 3시</div>
+</div>
+
+<div className="rounded-xl border border-[#d4af3720] bg-[#111111]/80 p-2">
+<div className="text-xs font-black text-[#f4d56d]">화요일</div>
+<div className="mt-1 text-[11px] text-zinc-300">오후 4시 ~ 새벽 2시</div>
+</div>
+
+<div className="rounded-xl border border-[#d4af3720] bg-[#111111]/80 p-2">
+<div className="text-xs font-black text-[#f4d56d]">주말</div>
+<div className="mt-1 text-[11px] text-zinc-300">오후 3시 ~ 새벽 3시</div>
+</div>
+
+<div className="rounded-xl border border-red-500/20 bg-red-950/30 p-2">
+<div className="text-xs font-black text-red-300">수요일</div>
+<div className="mt-1 text-[11px] text-zinc-300">정기휴무</div>
+</div>
+
+</div>
+
+<div className={`mt-2 text-[11px] font-black md:text-xs ${
+storeStatus.isOpen ? "text-green-300" : "text-red-300"
+}`}>
+{storeStatus.message}
+</div>
           </div>
 
           <div className="mt-3 grid w-full max-w-xs grid-cols-2 gap-2 md:max-w-sm">
