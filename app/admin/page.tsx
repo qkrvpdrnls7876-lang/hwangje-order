@@ -737,95 +737,22 @@ export default function AdminPage() {
       .join("\n");
   };
 
-  const printReceipt = (order: Order) => {
+  const printReceipt = async (order: Order) => {
     const text = receiptText(order);
-    const printWindow = window.open("", "_blank", "width=380,height=720");
+    const electronPrinter = (window as any).hwangjePOS;
 
-    if (!printWindow) {
-      alert("팝업이 차단되었습니다. 팝업 허용 후 다시 눌러주세요.");
-      return;
+    if (!electronPrinter?.printReceipt) {
+      alert("황제POS.exe에서 실행해야 COM4 빌지 자동출력이 됩니다. 현재는 브라우저/PWA라서 직접출력을 사용할 수 없습니다.");
+      return false;
     }
 
-    printWindow.document.write(`
-      <!doctype html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>황제떡볶이 빌지</title>
-          <style>
-            @page {
-              size: 80mm auto;
-              margin: 2mm;
-            }
-
-            * {
-              box-sizing: border-box;
-            }
-
-            body {
-              margin: 0;
-              padding: 0;
-              background: #fff;
-              color: #000;
-              font-family: "Courier New", "D2Coding", monospace;
-              font-size: 12px;
-              line-height: 1.15;
-              font-weight: 700;
-            }
-
-            .receipt {
-              width: 76mm;
-              padding: 0;
-              margin: 0 auto;
-              white-space: pre-wrap;
-              word-break: break-all;
-            }
-
-            .title {
-              text-align: center;
-              font-size: 18px;
-              font-weight: 900;
-              line-height: 1.05;
-              margin: 0 0 2px;
-            }
-
-            .text {
-              margin: 0;
-              padding: 0;
-              white-space: pre-wrap;
-              word-break: break-all;
-            }
-
-            @media print {
-              html,
-              body {
-                width: 80mm;
-                margin: 0;
-                padding: 0;
-              }
-
-              .receipt {
-                width: 76mm;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="receipt">
-            <div class="title">황제떡볶이</div>
-            <pre class="text">${text.replace("황제떡볶이\n", "")}</pre>
-          </div>
-          <script>
-            window.onload = function () {
-              window.focus();
-              window.print();
-            };
-          </script>
-        </body>
-      </html>
-    `);
-
-    printWindow.document.close();
+    try {
+      await electronPrinter.printReceipt(`황제떡볶이\n${text}`);
+      return true;
+    } catch (error) {
+      alert("빌지 출력 실패: " + String(error));
+      return false;
+    }
   };
 
   return (
@@ -893,9 +820,9 @@ export default function AdminPage() {
 
             <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
               <button
-                onClick={() => {
-                  printReceipt(popupOrder);
-                  changeStatus(popupOrder, "접수완료");
+                onClick={async () => {
+                  await printReceipt(popupOrder);
+                  await changeStatus(popupOrder, "접수완료");
                   setPopupOrder(null);
                 }}
                 className="rounded-2xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] py-4 text-sm font-black text-black shadow-[0_0_25px_rgba(212,175,55,.35)] sm:text-lg"
@@ -1232,7 +1159,14 @@ export default function AdminPage() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 p-4 md:grid-cols-3 2xl:grid-cols-6">
-                  <button disabled={!canChangeStatus(order, "접수완료")} onClick={() => changeStatus(order, "접수완료")} className={statusButtonClass(order, "접수완료", "rounded-xl bg-orange-500 py-3 font-bold")}>
+                  <button
+                    disabled={!canChangeStatus(order, "접수완료")}
+                    onClick={async () => {
+                      await printReceipt(order);
+                      await changeStatus(order, "접수완료");
+                    }}
+                    className={statusButtonClass(order, "접수완료", "rounded-xl bg-orange-500 py-3 font-bold")}
+                  >
                     접수
                   </button>
 
@@ -1248,7 +1182,12 @@ export default function AdminPage() {
                     완료
                   </button>
 
-                  <button onClick={() => printReceipt(order)} className="rounded-xl border border-[#d4af37] bg-gradient-to-b from-[#302300] to-[#0d0d0d] py-3 font-black text-[#f4d56d] shadow-[0_0_15px_rgba(212,175,55,.3)] hover:shadow-[0_0_25px_rgba(212,175,55,.6)]">
+                  <button
+                    onClick={async () => {
+                      await printReceipt(order);
+                    }}
+                    className="rounded-xl border border-[#d4af37] bg-gradient-to-b from-[#302300] to-[#0d0d0d] py-3 font-black text-[#f4d56d] shadow-[0_0_15px_rgba(212,175,55,.3)] hover:shadow-[0_0_25px_rgba(212,175,55,.6)]"
+                  >
                     빌지출력
                   </button>
 
