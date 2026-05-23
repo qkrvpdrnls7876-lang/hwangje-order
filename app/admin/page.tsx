@@ -493,22 +493,133 @@ export default function AdminPage() {
   };
 
   
-  const deleteTestOrders = async () => {
-    const ok = confirm("테스트 주문 전부 삭제할까요?");
-    if (!ok) return;
+  const testPrintReceipt = async () => {
+    const text = [
+      "황제떡볶이",
+      "------------------------------",
+      "테스트 출력",
+      "COM4 / 9600 / 58mm",
+      "------------------------------",
+      "오늘주문 #999",
+      "시간 오후 08:18",
+      "------------------------------",
+      "국물떡볶이 x1",
+      "  7,500원",
+      "순대+내장 x1",
+      "  8,000원",
+      "------------------------------",
+      "배달비 3,000",
+      "결제 18,500원",
+      "수단 테스트",
+      "------------------------------",
+      "전화 010-0000-0000",
+      "주소",
+      "전주시 테스트 주소",
+      "요청",
+      "CPP3000 테스트 출력입니다.",
+      "------------------------------",
+    ].join("\n");
 
-    const { error } = await supabase
-      .from("orders")
-      .delete()
-      .or("customer.ilike.%테스트%,customer.ilike.%test%,phone.eq.01012341234");
+    const electronPrinter = (window as any).hwangjePOS;
 
-    if (error) {
-      alert("삭제 실패: "+error.message);
+    if (electronPrinter?.printReceipt) {
+      try {
+        await electronPrinter.printReceipt(text);
+        alert("테스트 출력 전송 완료");
+        return;
+      } catch (error) {
+        alert(String(error));
+        return;
+      }
+    }
+
+    const printWindow = window.open("", "_blank", "width=300,height=720");
+
+    if (!printWindow) {
+      alert("팝업이 차단되었습니다. 팝업 허용 후 다시 눌러주세요.");
       return;
     }
 
-    alert("테스트 주문 삭제 완료");
-    fetchOrders();
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>황제떡볶이 테스트 빌지</title>
+          <style>
+            @page {
+              size: 58mm auto;
+              margin: 2mm;
+            }
+
+            * {
+              box-sizing: border-box;
+            }
+
+            body {
+              margin: 0;
+              padding: 0;
+              background: #fff;
+              color: #000;
+              font-family: "Courier New", "D2Coding", monospace;
+              font-size: 11px;
+              line-height: 1.15;
+              font-weight: 700;
+            }
+
+            .receipt {
+              width: 54mm;
+              padding: 0;
+              margin: 0 auto;
+              white-space: pre-wrap;
+              word-break: break-all;
+            }
+
+            .title {
+              text-align: center;
+              font-size: 16px;
+              font-weight: 900;
+              line-height: 1.05;
+              margin: 0 0 2px;
+            }
+
+            .text {
+              margin: 0;
+              padding: 0;
+              white-space: pre-wrap;
+              word-break: break-all;
+            }
+
+            @media print {
+              html,
+              body {
+                width: 58mm;
+                margin: 0;
+                padding: 0;
+              }
+
+              .receipt {
+                width: 54mm;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="receipt">
+            <div class="title">황제떡볶이</div>
+            <pre class="text">${text.replace("황제떡볶이\n", "")}</pre>
+          </div>
+          <script>
+            window.onload = function () {
+              window.focus();
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
   };
 
 
@@ -947,10 +1058,10 @@ const getStatusColor = (status: string) => {
             </button>
             
             <button
-              onClick={deleteTestOrders}
-              className="rounded-xl bg-red-800 px-3 py-2 text-sm font-black"
+              onClick={testPrintReceipt}
+              className="rounded-xl bg-emerald-700 px-3 py-2 text-sm font-black"
             >
-              🗑 테스트삭제
+              🧾 테스트출력
             </button>
           </div>
         </div>
