@@ -168,6 +168,8 @@ const [links, setLinks] = useState<GroupMenuLink[]>([]);
     const businessDay = new Date(date);
 
     // 새벽 3시 전까지는 전날 영업일로 봄
+    // 화요일 영업은 수요일 새벽 2시까지만 운영하지만,
+    // 수요일 0~2시는 화요일 영업일로 계산해야 해서 3시 기준은 유지
     if (businessDay.getHours() < 3) {
       businessDay.setDate(businessDay.getDate() - 1);
     }
@@ -218,13 +220,14 @@ const [links, setLinks] = useState<GroupMenuLink[]>([]);
     const businessDayNumber = businessDay.getDay();
     const isClosedDay = businessDayNumber === 3;
     const openHour = isWeekendBusinessDay(businessDay) ? 15 : 16;
+    const closeHour = businessDayNumber === 2 ? 2 : 3;
 
     const openAt = new Date(businessDay);
     openAt.setHours(openHour, 0, 0, 0);
 
     const closeAt = new Date(businessDay);
     closeAt.setDate(closeAt.getDate() + 1);
-    closeAt.setHours(3, 0, 0, 0);
+    closeAt.setHours(closeHour, 0, 0, 0);
 
     const isOpen =
       !isClosedDay &&
@@ -232,13 +235,13 @@ const [links, setLinks] = useState<GroupMenuLink[]>([]);
       date.getTime() < closeAt.getTime();
 
     const scheduleText =
-      "평일 오후 4시 ~ 새벽 3시 · 주말 오후 3시 ~ 새벽 3시 · 수요일 정기휴무";
+      "월/목/금 오후 4시~새벽 3시 · 화 오후 4시~새벽 2시 · 토/일 오후 3시~새벽 3시 · 수요일 휴무";
 
     if (isOpen) {
       return {
         isOpen,
         title: "영업중",
-        message: `오늘은 ${dayNames[businessDayNumber]}요일 영업일입니다. 새벽 3시까지 주문 가능`,
+        message: `오늘은 ${dayNames[businessDayNumber]}요일 영업일입니다. 새벽 ${closeHour}시까지 주문 가능`,
         scheduleText,
         nextOpenText: "",
       };
@@ -710,13 +713,13 @@ if (linksResult.error)
       }
 
       if (distance <= 2) {
-        setDeliveryFee(0);
-        setDeliveryStatus("2km 이내 무료배달 지역입니다.");
+        setDeliveryFee(1000);
+        setDeliveryStatus("2km 이내 배달비 1,000원");
         return;
       }
 
       const extraDistance = distance - 2;
-      const fee = Math.ceil(extraDistance * 10) * 100;
+      const fee = 1000 + Math.ceil(extraDistance * 10) * 100;
 
       setDeliveryFee(fee);
       setDeliveryStatus(
@@ -1150,9 +1153,9 @@ return groups.filter(
         return;
       }
 
-      if (menuTotal < 11000) {
+      if (menuTotal < 10000) {
         alert(
-          `최소 주문금액은 11,000원입니다.\n현재 메뉴금액 ${menuTotal.toLocaleString()}원`,
+          `최소 주문금액은 10,000원입니다.\n현재 메뉴금액 ${menuTotal.toLocaleString()}원`,
         );
         return;
       }
@@ -1378,7 +1381,7 @@ return groups.filter(
 
           <div className="mt-2 rounded-xl border border-[#d4af3728] bg-[#050505]/90 px-3.5 py-2 text-[11px] font-black text-zinc-200 md:text-sm">
             최소 주문금액
-            <span className="ml-2 text-[#f4d56d]">11,000원</span>
+            <span className="ml-2 text-[#f4d56d]">10,000원</span>
           </div>
 
           <div
@@ -1694,9 +1697,9 @@ return groups.filter(
                   결제금액 {finalTotal.toLocaleString()}원
                 </div>
 
-                {cart.length > 0 && menuTotal < 11000 && (
+                {cart.length > 0 && menuTotal < 10000 && (
                   <div className="mt-2 text-sm text-red-400">
-                    최소 주문금액까지 {(11000 - menuTotal).toLocaleString()}원
+                    최소 주문금액까지 {(10000 - menuTotal).toLocaleString()}원
                     부족
                   </div>
                 )}
@@ -1719,13 +1722,13 @@ return groups.filter(
                 disabled={
                   !storeStatus.isOpen ||
                   cart.length === 0 ||
-                  menuTotal < 11000 ||
+                  menuTotal < 10000 ||
                   deliveryDistance > MAX_DELIVERY_DISTANCE_KM
                 }
                 className={`mt-3 w-full rounded-lg p-2.5 text-sm font-black ${
                   !storeStatus.isOpen ||
                   cart.length === 0 ||
-                  menuTotal < 11000 ||
+                  menuTotal < 10000 ||
                   deliveryDistance > MAX_DELIVERY_DISTANCE_KM
                     ? "bg-zinc-800 text-zinc-500"
                     : "bg-red-500"
@@ -1903,7 +1906,7 @@ return groups.filter(
                     </div>
 
                     <div className="mt-2 text-xs text-zinc-500">
-                      2km까지 무료, 2km 초과 시 100m당 100원 추가
+                      2km까지 1,000원 / 이후 100m당 100원 추가
                     </div>
 
                     <div
