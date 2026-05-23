@@ -941,7 +941,7 @@ export default function AdminPage() {
               <div>
                 <div className="flex items-center gap-2 text-sm font-bold text-zinc-400">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,.8)]" />
-                  <span>{activeOrderCount}영업 중</span>
+                  <span>영업중</span>
                 </div>
                 <div className="mt-1 text-xs text-zinc-500">새벽 3시 기준 오늘 영업일 주문</div>
               </div>
