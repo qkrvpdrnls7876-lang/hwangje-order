@@ -113,7 +113,7 @@ export default function KitchenPage() {
       setSoundEnabled(true);
       alert("주방 알림음 켜짐");
     } catch {
-      alert("브라우저가 소리를 막고 있습니다. 화면을 한 번 누른 뒤 다시 시도해주세요.");
+      alert("브라우저가 소리를 막고 있습니다. 화면을 누른 뒤 다시 시도해주세요.");
     }
   };
 
