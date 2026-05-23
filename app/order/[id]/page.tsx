@@ -1,9 +1,9 @@
 "use client";
 
-export const runtime = "edge";
+// OrderStatusPage 바로 아래에 추
+
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type Order = {
@@ -31,12 +31,20 @@ type MenuItem = {
 };
 
 export default function OrderStatusPage() {
-  const params = useParams();
-  const orderId = Number(params.id);
+  const [orderId, setOrderId] = useState<number>(0);
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
-  const [displayOrderNumber, setDisplayOrderNumber] = useState<number | null>(null);
+  const [displayOrderNumber, setDisplayOrderNumber] =
+    useState<number | null>(null);
+
+  useEffect(() => {
+    const path = window.location.pathname;
+    const parts = path.split("/");
+    const id = parts[parts.length - 1];
+
+    setOrderId(Number(id));
+  }, []);
 
   const getBusinessStartDate = () => {
     const now = new Date();
@@ -51,7 +59,7 @@ export default function OrderStatusPage() {
       now.getDate(),
       4,
       0,
-      0,
+      0
     );
   };
 
@@ -89,7 +97,10 @@ export default function OrderStatusPage() {
       console.log(todayError);
       setDisplayOrderNumber(data.id);
     } else {
-      const index = (todayOrders || []).findIndex((item) => item.id === data.id);
+      const index = (todayOrders || []).findIndex(
+        (item) => item.id === data.id
+      );
+
       setDisplayOrderNumber(index >= 0 ? index + 1 : data.id);
     }
 
@@ -98,6 +109,8 @@ export default function OrderStatusPage() {
   };
 
   useEffect(() => {
+    if (!orderId) return;
+
     fetchOrder();
 
     const interval = setInterval(() => {
@@ -186,7 +199,7 @@ export default function OrderStatusPage() {
             실제 주문 ID: {order.id}
           </div>
 
-          <div className="mt-4 text-2xl font-black">
+          <div className="mt-4 text-2xl font-black">  
             {order.customer || "고객"}님 주문상태
           </div>
 
@@ -227,62 +240,6 @@ export default function OrderStatusPage() {
             ))}
           </div>
         )}
-
-        <div className="rounded-3xl border border-yellow-400/20 bg-black/80 p-5 shadow-2xl backdrop-blur">
-          <h2 className="mb-4 text-2xl font-black text-yellow-400">
-            주문내역
-          </h2>
-
-          <div className="space-y-3">
-            {menuLines().map((item, index) => (
-              <div key={index} className="rounded-2xl bg-zinc-900 p-4">
-                <div className="flex justify-between gap-3">
-                  <div>
-                    <div className="font-black">{item.name}</div>
-
-                    <div className="text-sm text-zinc-400">
-                      수량 {item.qty}개
-                    </div>
-                  </div>
-
-                  <div className="whitespace-nowrap font-black text-yellow-400">
-                    {item.total.toLocaleString()}원
-                  </div>
-                </div>
-
-                {item.options && item.options.length > 0 && (
-                  <div className="mt-3 space-y-1 text-sm text-zinc-400">
-                    {item.options.map((option, optionIndex) => (
-                      <div key={optionIndex}>
-                        - {option.groupName}: {option.optionName}
-                        {option.price > 0 &&
-                          ` +${option.price.toLocaleString()}원`}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-5 border-t border-zinc-800 pt-5">
-            <div className="text-zinc-400">총 결제금액</div>
-
-            <div className="text-4xl font-black text-yellow-400">
-              {order.total.toLocaleString()}원
-            </div>
-          </div>
-
-          <div className="mt-5 rounded-2xl bg-zinc-950 p-4">
-            <div className="mb-2 text-zinc-400">요청사항</div>
-
-            <div>{order.memo?.trim() ? order.memo : "요청사항 없음"}</div>
-          </div>
-        </div>
-
-        <div className="mt-6 text-center text-sm text-zinc-400">
-          이 화면은 3초마다 자동으로 업데이트됩니다.
-        </div>
       </div>
     </main>
   );

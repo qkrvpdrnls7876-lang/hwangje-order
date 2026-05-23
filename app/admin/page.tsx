@@ -863,7 +863,7 @@ const getStatusColor = (status: string) => {
         <div className="mb-6 rounded-3xl bg-zinc-900 p-6">
           <div className="flex items-center justify-between gap-6">
             <div>
-              <h1 className="bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] bg-clip-text text-5xl font-black text-transparent">
+              <h1 className="bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] bg-clip-text text-4xl font-black text-transparent">
                 황제 관리자
               </h1>
 
@@ -955,45 +955,45 @@ const getStatusColor = (status: string) => {
           </div>
         </div>
 
-        <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-6">
-          <div className="rounded-2xl border border-[#d4af3720] bg-[#0d0d0d]/95 p-4 backdrop-blur-xl shadow-[0_0_15px_rgba(212,175,55,.08)]">
-            <div className="text-sm text-zinc-400">오늘 매출</div>
-            <div className="mt-1 text-2xl font-black text-yellow-400">
+        <div className="mb-6 ml-8 mr-[260px] grid grid-cols-2 gap-2 md:grid-cols-6">
+          <div className="rounded-xl border border-[#d4af3720] bg-[#0d0d0d]/95 p-2 shadow-[0_0_10px_rgba(212,175,55,.08)]">
+            <div className="text-[11px] text-zinc-400">오늘 매출</div>
+            <div className="mt-1 text-lg font-black text-yellow-400">
               {todaySales.toLocaleString()}원
             </div>
           </div>
 
-          <div className="rounded-2xl border border-zinc-700 bg-zinc-900 p-4">
-            <div className="text-sm text-zinc-400">주문</div>
-            <div className="mt-1 text-2xl font-black">
+          <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-2">
+            <div className="text-[11px] text-zinc-400">주문</div>
+            <div className="mt-1 text-lg font-black">
               {payableOrders.length}건
             </div>
           </div>
 
-          <div className="rounded-2xl border border-red-500/30 bg-zinc-900 p-4">
-            <div className="text-sm text-zinc-400">대기/접수</div>
-            <div className="mt-1 text-2xl font-black text-red-400">
+          <div className="rounded-xl border border-red-500/30 bg-zinc-900 p-2">
+            <div className="text-[11px] text-zinc-400">대기/접수</div>
+            <div className="mt-1 text-lg font-black text-red-400">
               {waitingCount + acceptedCount}건
             </div>
           </div>
 
-          <div className="rounded-2xl border border-blue-500/30 bg-zinc-900 p-4">
-            <div className="text-sm text-zinc-400">조리중</div>
-            <div className="mt-1 text-2xl font-black text-blue-400">
+          <div className="rounded-xl border border-blue-500/30 bg-zinc-900 p-2">
+            <div className="text-[11px] text-zinc-400">조리중</div>
+            <div className="mt-1 text-lg font-black text-blue-400">
               {cookingCount}건
             </div>
           </div>
 
-          <div className="rounded-2xl border border-green-500/30 bg-zinc-900 p-4">
-            <div className="text-sm text-zinc-400">배달/입금</div>
-            <div className="mt-1 text-2xl font-black text-green-400">
+          <div className="rounded-xl border border-green-500/30 bg-zinc-900 p-2">
+            <div className="text-[11px] text-zinc-400">배달/입금</div>
+            <div className="mt-1 text-lg font-black text-green-400">
               {deliveryCount}/{transferCount}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-yellow-400/30 bg-zinc-900 p-4">
-            <div className="text-sm text-zinc-400">자동 예상</div>
-            <div className="mt-1 text-2xl font-black text-yellow-400">
+          <div className="rounded-xl border border-yellow-400/30 bg-zinc-900 p-2">
+            <div className="text-[11px] text-zinc-400">자동 예상</div>
+            <div className="mt-1 text-lg font-black text-yellow-400">
               {autoEstimatedTime}
             </div>
           </div>
@@ -1315,5 +1315,5 @@ const getStatusColor = (status: string) => {
         </div>
       </div>
     </main>
-  );
+   );
 }

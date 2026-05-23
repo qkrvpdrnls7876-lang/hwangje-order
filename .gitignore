@@ -42,3 +42,21 @@ next-env.d.ts
 
 .vercel
 .env*.local
+
+# Electron 제외
+electron/
+
+# 빌드파일 제외
+dist/
+electron/
+electron/dist/
+electron/node_modules/
+
+electron/
+electron/dist/
+electron/node_modules/
+
+electron/
+electron/
+electron/dist/
+electron/node_modules/
