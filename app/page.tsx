@@ -983,8 +983,24 @@ return groups.filter(
   const openOptionModal = (menu: Menu) => {
     if (menu.is_soldout) return alert("품절된 메뉴입니다.");
 
+    // 수정: 메뉴 상세창을 열 때 필수 옵션은 첫 번째 판매중 옵션으로 기본 선택
+    // 선택 누락으로 주문 진행이 막히는 것을 줄이고, 배민처럼 바로 담기 가능한 흐름으로 개선
+    const defaultSelectedOptions = getGroupsByMenuId(menu.id).reduce<
+      Record<number, OptionItem[]>
+    >((result, group) => {
+      const availableOptions = getItemsByGroupId(group.id).filter(
+        (option) => !option.is_soldout,
+      );
+
+      if (group.required && availableOptions.length > 0) {
+        result[group.id] = [availableOptions[0]];
+      }
+
+      return result;
+    }, {});
+
     setSelectedMenu(menu);
-    setSelectedOptions({});
+    setSelectedOptions(defaultSelectedOptions);
     setOptionModalQty(1);
   };
 
@@ -1000,11 +1016,14 @@ return groups.filter(
     setSelectedOptions((prev) => {
       const current = prev[group.id] || [];
 
+      const exists = current.some((item) => item.id === option.id);
+
+      // 수정: 단일 선택 옵션도 같은 항목을 다시 누르면 선택 해제되게 처리
+      // 실수로 선택했을 때 바로 뺄 수 있고, 필수 옵션은 장바구니 담기 시 다시 검증됨
       if (group.type === "single") {
-        return { ...prev, [group.id]: [option] };
+        return { ...prev, [group.id]: exists ? [] : [option] };
       }
 
-      const exists = current.some((item) => item.id === option.id);
 
       return {
         ...prev,
@@ -1376,36 +1395,36 @@ return groups.filter(
 
       <div className="fixed inset-0 z-0 bg-[#050505]/82" />
 
-      <div className="relative z-10 mx-auto w-full max-w-[430px] px-3 py-3 md:max-w-5xl md:p-4">
-        <section className="mb-3 flex min-h-[22vh] flex-col items-center justify-center rounded-[22px] border border-[#d4af3735] bg-gradient-to-b from-[#151007]/95 via-black/78 to-[#050505]/95 px-3 py-3 text-center shadow-[0_0_42px_rgba(212,175,55,.16)] backdrop-blur-xl md:mb-8 md:min-h-[54vh] md:rounded-3xl md:py-6">
+      <div className="relative z-10 mx-auto w-full max-w-[520px] px-4 py-4 md:max-w-6xl md:p-6 /* 황제수정: 모바일 화면 폭/여백 확대 */">
+        <section className="mb-4 flex min-h-[30vh] flex-col items-center justify-center rounded-[28px] /* 황제수정: 첫 화면을 더 크게 */ border border-[#d4af3735] bg-gradient-to-b from-[#151007]/95 via-black/78 to-[#050505]/95 px-4 py-5 text-center shadow-[0_0_42px_rgba(212,175,55,.16)] backdrop-blur-xl md:mb-8 md:min-h-[54vh] md:rounded-3xl md:py-6">
           <img
             src="/images/penguin-logo.png"
             alt="황제떡볶이"
-            className="w-[118px] object-contain drop-shadow-[0_0_42px_rgba(212,175,55,.75)] md:w-[700px]"
+            className="w-[170px] object-contain /* 황제수정: 로고 확대 */ drop-shadow-[0_0_42px_rgba(212,175,55,.75)] md:w-[700px]"
           />
 
-          <div className="mt-2 rounded-full border border-[#d4af3748] bg-[#120e05]/85 px-3 py-1 text-[10px] font-black tracking-[-0.03em] text-[#f4d56d] md:text-xs">
+          <div className="mt-3 rounded-full border border-[#d4af3748] bg-[#120e05]/85 px-4 py-1.5 text-xs font-black tracking-[-0.03em] text-[#f4d56d] md:text-xs">
             효자동 순대 · 내장 맛집
           </div>
 
-          <div className="mt-2 rounded-xl border border-[#d4af3728] bg-[#050505]/90 px-3.5 py-2 text-[11px] font-black text-zinc-200 md:text-sm">
+          <div className="mt-3 rounded-2xl border border-[#d4af3728] bg-[#050505]/90 px-4 py-3 text-sm font-black text-zinc-200 md:text-sm">
             최소 주문금액
             <span className="ml-2 text-[#f4d56d]">10,000원</span>
           </div>
 
           <div
-            className={`mt-2 w-full max-w-xs rounded-2xl border px-3 py-2.5 text-left shadow-lg md:max-w-sm ${
+            className={`mt-3 w-full max-w-md rounded-3xl border px-4 py-4 text-left shadow-lg md:max-w-sm ${
               storeStatus.isOpen
                 ? "border-green-400/35 bg-green-950/35 shadow-green-500/10"
                 : "border-red-400/35 bg-red-950/35 shadow-red-500/10"
             }`}
           >
             <div className="flex items-center justify-between gap-2">
-              <div className="text-xs font-black text-zinc-300 md:text-sm">
+              <div className="text-sm font-black text-zinc-300 md:text-base">
                 영업시간
               </div>
               <div
-                className={`rounded-full px-2.5 py-1 text-[11px] font-black ${
+                className={`rounded-full px-3 py-1.5 text-xs font-black ${
                   storeStatus.isOpen
                     ? "bg-green-500 text-black"
                     : "bg-red-500 text-white"
@@ -1419,37 +1438,37 @@ return groups.filter(
 
 <div className="rounded-xl border border-[#d4af3720] bg-[#111111]/80 p-2">
 <div className="text-xs font-black text-[#f4d56d]">월 · 목 · 금</div>
-<div className="mt-1 text-[11px] text-zinc-300">오후 4시 ~ 새벽 3시</div>
+<div className="mt-1 text-xs text-zinc-300">오후 4시 ~ 새벽 3시</div>
 </div>
 
 <div className="rounded-xl border border-[#d4af3720] bg-[#111111]/80 p-2">
 <div className="text-xs font-black text-[#f4d56d]">화요일</div>
-<div className="mt-1 text-[11px] text-zinc-300">오후 4시 ~ 새벽 2시</div>
+<div className="mt-1 text-xs text-zinc-300">오후 4시 ~ 새벽 2시</div>
 </div>
 
 <div className="rounded-xl border border-[#d4af3720] bg-[#111111]/80 p-2">
 <div className="text-xs font-black text-[#f4d56d]">주말</div>
-<div className="mt-1 text-[11px] text-zinc-300">오후 3시 ~ 새벽 3시</div>
+<div className="mt-1 text-xs text-zinc-300">오후 3시 ~ 새벽 3시</div>
 </div>
 
 <div className="rounded-xl border border-red-500/20 bg-red-950/30 p-2">
 <div className="text-xs font-black text-red-300">수요일</div>
-<div className="mt-1 text-[11px] text-zinc-300">정기휴무</div>
+<div className="mt-1 text-xs text-zinc-300">정기휴무</div>
 </div>
 
 </div>
 
-<div className={`mt-2 text-[11px] font-black md:text-xs ${
+<div className={`mt-2 text-xs font-black md:text-xs ${
 storeStatus.isOpen ? "text-green-300" : "text-red-300"
 }`}>
 {storeStatus.message}
 </div>
           </div>
 
-          <div className="mt-3 grid w-full max-w-xs grid-cols-2 gap-2 md:max-w-sm">
+          <div className="mt-4 grid w-full max-w-md grid-cols-2 gap-3 md:max-w-lg">
             <a
               href="/stamp"
-              className="rounded-xl border border-[#d4af3748] bg-[#050505]/90 px-3 py-2 text-[11px] font-black text-[#f4d56d] shadow-lg shadow-[#d4af37]/10 md:text-sm"
+              className="rounded-xl border border-[#d4af3748] bg-[#050505]/90 px-4 py-3 text-sm font-black text-[#f4d56d] shadow-lg shadow-[#d4af37]/10 md:text-sm"
             >
               내 스탬프
             </a>
@@ -1457,7 +1476,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
             <button
               type="button"
               onClick={() => setShowOrderLookup(!showOrderLookup)}
-              className="rounded-xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] px-3 py-2 text-[11px] font-black text-black shadow-lg shadow-[#d4af37]/20 md:text-sm"
+              className="rounded-xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] px-4 py-3 text-sm font-black text-black shadow-lg shadow-[#d4af37]/20 md:text-sm"
             >
               📦 주문내역
             </button>
@@ -1480,7 +1499,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                   type="button"
                   onClick={fetchRecentOrders}
                   disabled={recentOrdersLoading}
-                  className="rounded-lg border border-[#d4af3735] bg-[#050505] p-2.5 text-xs font-black text-[#f4d56d]"
+                  className="rounded-2xl border border-[#d4af3735] bg-[#050505] p-4 text-sm font-black text-[#f4d56d]"
                 >
                   {recentOrdersLoading ? "불러오는 중" : "최근주문"}
                 </button>
@@ -1488,7 +1507,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                 <button
                   type="button"
                   onClick={goOrderLookup}
-                  className="rounded-lg bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] p-2.5 text-xs font-black text-black"
+                  className="rounded-2xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] p-4 text-sm font-black text-black"
                 >
                   상태보기
                 </button>
@@ -1503,13 +1522,13 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="text-[10px] font-bold text-zinc-500">
+                          <div className="text-xs font-bold text-zinc-500">
                             #{order.id} · {formatOrderDate(order.created_at)} · {order.status}
                           </div>
                           <div className="mt-1 truncate text-xs font-black text-[#fff2b8]">
                             {getOrderMenuSummary(order.menu)}
                           </div>
-                          <div className="mt-1 truncate text-[11px] text-zinc-500">
+                          <div className="mt-1 truncate text-xs text-zinc-500">
                             {order.address}
                           </div>
                         </div>
@@ -1535,14 +1554,14 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
         </section>
 
 
-        <div className="sticky top-0 z-30 mb-3 -mx-3 border-y border-[#d4af3724] bg-[#050505]/95 px-3 py-2 shadow-xl shadow-black/60 backdrop-blur md:top-0 md:mx-0 md:rounded-xl md:border md:px-3">
+        <div className="sticky top-0 z-30 mb-4 -mx-4 border-y border-[#d4af3724] bg-[#050505]/95 px-4 py-3 shadow-xl shadow-black/60 backdrop-blur md:top-0 md:mx-0 md:rounded-xl md:border md:px-3">
           <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {Object.keys(groupedMenu).map((category) => (
               <button
                 key={category}
                 type="button"
                 onClick={() => scrollToCategory(category)}
-                className="shrink-0 rounded-full border border-[#d4af3735] bg-gradient-to-b from-[#17130a] to-[#050505] px-3 py-2 text-xs font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.12)] active:bg-gradient-to-r active:from-[#fff1a8] active:via-[#d4af37] active:to-[#8a6a14] active:text-black md:text-sm"
+                className="shrink-0 rounded-full border border-[#d4af3735] bg-gradient-to-b from-[#17130a] to-[#050505] px-4 py-3 text-sm font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.12)] active:bg-gradient-to-r active:from-[#fff1a8] active:via-[#d4af37] active:to-[#8a6a14] active:text-black md:text-sm"
               >
                 {category}
               </button>
@@ -1552,7 +1571,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
               <button
                 type="button"
                 onClick={scrollToCart}
-                className="shrink-0 rounded-full bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] px-3 py-2 text-xs font-black text-black shadow-lg shadow-[#d4af37]/20 md:hidden"
+                className="shrink-0 rounded-full bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] px-4 py-3 text-sm font-black text-black shadow-lg shadow-[#d4af37]/20 md:hidden"
               >
                 🛒 장바구니
               </button>
@@ -1560,9 +1579,9 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-3">
           <div className="md:col-span-2">
-            <div className="space-y-4">
+            <div className="space-y-5">
               {Object.entries(groupedMenu).map(([category, menuItems]) => (
                 <section
                   key={category}
@@ -1571,29 +1590,29 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                   }}
                   className="scroll-mt-20 md:scroll-mt-24"
                 >
-                  <h2 className="mb-2 border-b border-[#d4af3735] bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] bg-clip-text pb-1.5 text-base font-black tracking-[-0.04em] text-transparent drop-shadow-[0_0_18px_rgba(212,175,55,.25)] md:text-xl">
+                  <h2 className="mb-3 border-b border-[#d4af3735] bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] bg-clip-text pb-1.5 text-xl font-black tracking-[-0.04em] /* 황제수정: 카테고리 제목 확대 */ text-transparent drop-shadow-[0_0_18px_rgba(212,175,55,.25)] md:text-xl">
                     {category}
                   </h2>
 
-                  <div className="grid gap-2">
+                  <div className="grid gap-3">
                     {menuItems.map((menu) => (
                       <div
                         key={menu.id}
-                        className={`rounded-[18px] border border-[#d4af3728] bg-gradient-to-b from-[#111111]/95 to-[#050505]/95 p-3 shadow-[0_0_16px_rgba(212,175,55,.07)] backdrop-blur-xl transition-all duration-300 hover:border-[#d4af37] hover:shadow-[0_0_30px_rgba(212,175,55,.22)] ${
+                        className={`rounded-[24px] border border-[#d4af3728] bg-gradient-to-b from-[#111111]/95 to-[#050505]/95 p-4 /* 황제수정: 메뉴 카드 확대 */ shadow-[0_0_16px_rgba(212,175,55,.07)] backdrop-blur-xl transition-all duration-300 hover:border-[#d4af37] hover:shadow-[0_0_30px_rgba(212,175,55,.22)] ${
                           menu.is_soldout ? "opacity-50" : ""
                         }`}
                       >
-                        <div className="flex justify-between gap-2">
+                        <div className="flex justify-between gap-3">
                           <div>
-                            <h3 className="text-sm font-black tracking-[-0.04em] text-[#fff8d9] md:text-base">
+                            <h3 className="text-lg font-black tracking-[-0.04em] text-[#fff8d9] md:text-xl">
                               {menu.name}
                             </h3>
 
-                            <div className="mt-0.5 text-[11px] leading-snug text-zinc-400 md:text-xs">
+                            <div className="mt-1 text-sm leading-relaxed text-zinc-400 md:text-base">
                               {menu.description || ""}
                             </div>
 
-                            <div className="mt-1 text-base font-black text-[#f4d56d] md:text-lg">
+                            <div className="mt-2 text-xl font-black text-[#f4d56d] md:text-2xl">
                               {menu.price.toLocaleString()}원
                             </div>
                           </div>
@@ -1608,7 +1627,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                         <button
                           onClick={() => openOptionModal(menu)}
                           disabled={menu.is_soldout}
-                          className={`mt-2 w-full rounded-lg p-2 text-[11px] font-black md:text-xs ${
+                          className={`mt-3 w-full rounded-2xl p-3.5 text-sm font-black md:text-base ${
                             menu.is_soldout
                               ? "bg-zinc-800 text-zinc-500"
                               : "bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] text-black shadow-[0_0_22px_rgba(212,175,55,.28)]"
@@ -1625,13 +1644,13 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
           </div>
 
           <aside className={`${showOrderForm ? "block" : "hidden"} md:block`}>
-            <div ref={cartRef} className="md:sticky md:top-3 rounded-xl border border-[#d4af3735] bg-gradient-to-b from-[#111111]/95 to-[#050505]/95 p-2.5 shadow-2xl shadow-black/70 backdrop-blur">
-              <h2 className="mb-2 text-base font-black text-[#f4d56d] md:text-lg">
+            <div ref={cartRef} className="md:sticky md:top-3 rounded-2xl border border-[#d4af3735] bg-gradient-to-b from-[#111111]/95 to-[#050505]/95 p-4 shadow-2xl shadow-black/70 backdrop-blur">
+              <h2 className="mb-3 text-xl font-black text-[#f4d56d] md:text-2xl">
                 장바구니
               </h2>
 
               {cart.length === 0 && (
-                <div className="rounded-lg bg-zinc-900/80 p-2.5 text-xs text-zinc-500">
+                <div className="rounded-xl bg-zinc-900/80 p-4 text-sm text-zinc-500">
                   메뉴를 담아주세요
                 </div>
               )}
@@ -1641,7 +1660,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                   key={item.cartId}
                   className="border-b border-zinc-900 py-2"
                 >
-                  <div className="text-xs font-black text-[#fff8d9] md:text-sm">{item.name}</div>
+                  <div className="text-base font-black text-[#fff8d9] md:text-lg">{item.name}</div>
 
                   {item.options.length > 0 && (
                     <div className="mt-2 space-y-1 text-xs text-zinc-400">
@@ -1656,7 +1675,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                   )}
 
                   <div className="mt-2 flex items-center justify-between gap-2">
-                    <div className="text-xs font-black text-[#f4d56d] md:text-sm">
+                    <div className="text-base font-black text-[#f4d56d] md:text-lg">
                       {item.total.toLocaleString()}원
                     </div>
 
@@ -1679,7 +1698,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
 
                       <button
                         onClick={() => removeCart(item.cartId)}
-                        className="rounded-md bg-red-700 px-2 py-0.5 text-[11px] font-black"
+                        className="rounded-md bg-red-700 px-2 py-0.5 text-xs font-black"
                       >
                         삭제
                       </button>
@@ -1702,7 +1721,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                       배달비 ({deliveryDistance.toFixed(1)}km)
                     </span>
 
-                    <span className="text-xs font-black text-[#f4d56d] md:text-sm">
+                    <span className="text-base font-black text-[#f4d56d] md:text-lg">
                       {deliveryFee.toLocaleString()}원
                     </span>
                   </div>
@@ -1752,7 +1771,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                   menuTotal < 10000 ||
                   deliveryDistance > MAX_DELIVERY_DISTANCE_KM
                 }
-                className={`mt-3 w-full rounded-lg p-2.5 text-sm font-black ${
+                className={`mt-4 w-full rounded-2xl p-4 text-base font-black ${
                   !storeStatus.isOpen ||
                   cart.length === 0 ||
                   menuTotal < 10000 ||
@@ -1778,7 +1797,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                         address: next.address,
                       });
                     }}
-                    className="w-full rounded-lg border border-[#d4af3724] bg-[#050505] p-2.5 text-sm text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
+                    className="w-full rounded-2xl border border-[#d4af3724] bg-[#050505] p-4 text-base text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
                   />
 
                   <input
@@ -1801,7 +1820,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                         autoFillAddress(value);
                       }
                     }}
-                    className="w-full rounded-lg border border-[#d4af3724] bg-[#050505] p-2.5 text-sm text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
+                    className="w-full rounded-2xl border border-[#d4af3724] bg-[#050505] p-4 text-base text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
                   />
 
                   {form.phone && !isValidKoreanPhone(form.phone) && (
@@ -1812,7 +1831,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
 
                   <button
                     onClick={checkStamp}
-                    className="w-full rounded-lg border border-yellow-500/30 bg-[#050505] p-2.5 text-sm font-black text-[#f4d56d] shadow-lg shadow-[#d4af37]/10"
+                    className="w-full rounded-2xl border border-yellow-500/30 bg-[#050505] p-4 text-base font-black text-[#f4d56d] shadow-lg shadow-[#d4af37]/10"
                   >
                     스탬프 조회
                   </button>
@@ -1869,7 +1888,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                     <button
                       type="button"
                       onClick={() => setShowAddressSearch(true)}
-                      className="rounded-lg border border-[#d4af3735] bg-[#050505] p-2.5 text-xs font-black text-[#f4d56d] md:text-sm"
+                      className="rounded-2xl border border-[#d4af3735] bg-[#050505] p-4 text-sm font-black text-[#f4d56d] md:text-sm"
                     >
                       🔎 주소검색
                     </button>
@@ -1878,7 +1897,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                       type="button"
                       onClick={getCurrentLocation}
                       disabled={gettingLocation}
-                      className="rounded-lg bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] p-2.5 text-xs font-black text-black md:text-sm"
+                      className="rounded-2xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] p-4 text-sm font-black text-black md:text-sm"
                     >
                       {gettingLocation ? "📍 위치 찾는 중" : "현재위치"}
                     </button>
@@ -1897,14 +1916,14 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                       saveCustomerInfo({ ...next, detailAddress: "" });
                       calculateDeliveryFee(value);
                     }}
-                    className="w-full rounded-lg border border-[#d4af3724] bg-[#050505] p-2.5 text-sm text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
+                    className="w-full rounded-2xl border border-[#d4af3724] bg-[#050505] p-4 text-base text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
                   />
 
                   <input
                     placeholder="상세주소 예: 101동 1001호 / 현관 비번"
                     value={detailAddress}
                     onChange={(e) => updateDetailAddress(e.target.value)}
-                    className="w-full rounded-lg border border-[#d4af3724] bg-[#050505] p-2.5 text-sm text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
+                    className="w-full rounded-2xl border border-[#d4af3724] bg-[#050505] p-4 text-base text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
                   />
 
                   <button
@@ -1927,7 +1946,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
 
                     <div className="mt-2 flex justify-between">
                       <span className="text-zinc-400">배달비</span>
-                      <span className="text-xs font-black text-[#f4d56d] md:text-sm">
+                      <span className="text-base font-black text-[#f4d56d] md:text-lg">
                         {deliveryFee.toLocaleString()}원
                       </span>
                     </div>
@@ -1967,7 +1986,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
 
                     {showDeliveryRequests && (
                       <div className="border-t border-[#d4af3718] p-2.5">
-                        <div className="grid gap-2">
+                        <div className="grid gap-3">
                           {deliveryRequests.map((request) => (
                             <button
                               key={request}
@@ -2008,7 +2027,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
 
                     {showPaymentMethods && (
                       <div className="border-t border-[#d4af3718] p-2.5">
-                        <div className="grid gap-2">
+                        <div className="grid gap-3">
                           {paymentMethods.map((method) => (
                             <button
                               key={method}
@@ -2065,7 +2084,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                     placeholder="추가 요청사항 예: 덜 맵게, 단무지 많이 주세요"
                     value={form.memo}
                     onChange={(e) => setForm({ ...form, memo: e.target.value })}
-                    className="w-full rounded-lg border border-[#d4af3724] bg-[#050505] p-2.5 text-sm text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
+                    className="w-full rounded-2xl border border-[#d4af3724] bg-[#050505] p-4 text-base text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
                   />
 
                   <button
@@ -2207,13 +2226,13 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
             <div className="absolute bottom-0 left-0 right-0 max-h-[86vh] overflow-y-auto rounded-t-[28px] border-t border-[#d4af3748] bg-[#070707] p-3 shadow-[0_-18px_60px_rgba(212,175,55,.16)]">
               <div className="mb-3 flex items-center justify-between">
                 <div>
-                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#d4af37]">HWANGJE CART</div>
+                  <div className="text-xs font-black uppercase tracking-[0.18em] text-[#d4af37]">HWANGJE CART</div>
                   <div className="text-xl font-black text-[#fff2b8]">장바구니</div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setMobileCartOpen(false)}
-                  className="rounded-full border border-[#d4af3735] bg-[#111111] px-3 py-2 text-xs font-black text-[#f4d56d]"
+                  className="rounded-full border border-[#d4af3735] bg-[#111111] px-4 py-3 text-sm font-black text-[#f4d56d]"
                 >
                   닫기
                 </button>
@@ -2232,7 +2251,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                       <div className="min-w-0">
                         <div className="truncate text-sm font-black text-[#fff8d9]">{item.name}</div>
                         {item.options.length > 0 && (
-                          <div className="mt-1 space-y-0.5 text-[11px] text-zinc-400">
+                          <div className="mt-1 space-y-0.5 text-xs text-zinc-400">
                             {item.options.map((option, index) => (
                               <div key={index}>
                                 - {option.groupName}: {option.optionName}
@@ -2298,7 +2317,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                   </button>
 
                   <div className="min-w-0 flex-1 text-center">
-                    <div className="truncate text-[11px] font-black uppercase tracking-[0.22em] text-[#d4af37]">
+                    <div className="truncate text-xs font-black uppercase tracking-[0.22em] text-[#d4af37]">
                       HWANGJE ORDER
                     </div>
                     <div className="truncate text-sm font-black text-[#fff8d9]">메뉴 상세</div>
@@ -2320,7 +2339,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
 
                   <div className="relative flex min-h-[150px] flex-col justify-between">
                     <div>
-                      <div className="mb-2 inline-flex rounded-full border border-[#d4af3745] bg-black/35 px-3 py-1 text-[11px] font-black text-[#f4d56d]">
+                      <div className="mb-2 inline-flex rounded-full border border-[#d4af3745] bg-black/35 px-3 py-1 text-xs font-black text-[#f4d56d]">
                         황제떡볶이 대표 메뉴
                       </div>
 
@@ -2337,14 +2356,14 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
 
                     <div className="mt-5 flex items-end justify-between gap-3">
                       <div>
-                        <div className="text-[11px] font-bold text-zinc-500">기본가격</div>
+                        <div className="text-xs font-bold text-zinc-500">기본가격</div>
                         <div className="text-2xl font-black text-[#f4d56d]">
                           {selectedMenu.price.toLocaleString()}원
                         </div>
                       </div>
 
                       <div className="rounded-2xl border border-[#d4af3730] bg-black/35 px-3 py-2 text-right">
-                        <div className="text-[10px] font-black text-zinc-500">옵션 포함</div>
+                        <div className="text-xs font-black text-zinc-500">옵션 포함</div>
                         <div className="text-sm font-black text-[#fff2b8]">
                           {selectedMenuTotal.toLocaleString()}원
                         </div>
@@ -2361,7 +2380,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                   </div>
                 )}
 
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {getGroupsByMenuId(selectedMenu.id).map((group) => (
                     <section
                       key={group.id}
@@ -2370,7 +2389,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                       <div className="border-b border-[#d4af371d] bg-[#0c0c0c] px-4 py-3">
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <h3 className="text-base font-black tracking-[-0.04em] text-[#fff8d9]">
+                            <h3 className="text-xl font-black tracking-[-0.04em] /* 황제수정: 카테고리 제목 확대 */ text-[#fff8d9]">
                               {group.name}
                             </h3>
                             <p className="mt-0.5 text-xs font-bold text-zinc-500">
@@ -2379,7 +2398,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                           </div>
 
                           <span
-                            className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-black ${
+                            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${
                               group.required
                                 ? "bg-[#d4af37] text-black"
                                 : "border border-[#d4af3735] text-[#f4d56d]"
@@ -2413,7 +2432,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                             >
                               <div className="flex min-w-0 items-center gap-3">
                                 <span
-                                  className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border text-[11px] font-black ${
+                                  className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border text-xs font-black ${
                                     checked
                                       ? "border-[#d4af37] bg-[#d4af37] text-black"
                                       : "border-zinc-700 text-zinc-700"
@@ -2469,7 +2488,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                   </div>
 
                   <div className="text-right">
-                    <div className="text-[11px] font-bold text-zinc-500">총 합계</div>
+                    <div className="text-xs font-bold text-zinc-500">총 합계</div>
                     <div className="text-xl font-black text-[#f4d56d]">
                       {(selectedMenuTotal * optionModalQty).toLocaleString()}원
                     </div>
@@ -2479,7 +2498,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                 <button
                   type="button"
                   onClick={addCartWithOptions}
-                  className="w-full rounded-2xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] p-4 text-base font-black text-black shadow-[0_0_30px_rgba(212,175,55,.28)] active:scale-[0.99]"
+                  className="w-full rounded-3xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] p-5 text-lg font-black text-black shadow-[0_0_30px_rgba(212,175,55,.28)] active:scale-[0.99]"
                 >
                   {(selectedMenuTotal * optionModalQty).toLocaleString()}원 담기
                 </button>
