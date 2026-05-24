@@ -52,6 +52,25 @@ type Customer = {
   order_count: number | null;
 };
 
+
+type ToastTone = "gold" | "success" | "danger" | "info";
+
+type UiToast = {
+  id: number;
+  title: string;
+  message?: string;
+  tone: ToastTone;
+};
+
+type ConfirmDialog = {
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  tone?: "gold" | "danger";
+  onConfirm: () => void | Promise<void>;
+};
+
 export default function AdminPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [newOrderAlert, setNewOrderAlert] = useState(false);
@@ -61,6 +80,9 @@ export default function AdminPage() {
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"active" | "waiting" | "done">("active");
   const [toastOrder, setToastOrder] = useState<Order | null>(null);
+  const [uiToast, setUiToast] = useState<UiToast | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const soundEnabledRef = useRef(false);
@@ -69,6 +91,37 @@ export default function AdminPage() {
   const lastCountRef = useRef(0);
 
   const estimatedTimes = ["20분", "30분", "40분", "50분", "60분", "80분"];
+  const SOUND_STORAGE_KEY = "hwangje_admin_sound_enabled";
+
+  const showToast = (title: string, message?: string, tone: ToastTone = "gold") => {
+    setUiToast({
+      id: Date.now(),
+      title,
+      message,
+      tone,
+    });
+  };
+
+  const showConfirm = (dialog: ConfirmDialog) => {
+    setConfirmDialog(dialog);
+  };
+
+  const closeConfirm = () => {
+    if (confirmLoading) return;
+    setConfirmDialog(null);
+  };
+
+  const runConfirm = async () => {
+    if (!confirmDialog || confirmLoading) return;
+
+    try {
+      setConfirmLoading(true);
+      await confirmDialog.onConfirm();
+      setConfirmDialog(null);
+    } finally {
+      setConfirmLoading(false);
+    }
+  };
 
   const cleanPhone = (phone: string) => phone.replace(/[^0-9]/g, "");
 
@@ -159,24 +212,40 @@ export default function AdminPage() {
       soundEnabledRef.current = true;
       setSoundEnabled(true);
 
-      alert("알림음 켜짐");
+      if (typeof window !== "undefined") {
+        localStorage.setItem(SOUND_STORAGE_KEY, "true");
+      }
+
+      showToast("알림음 켜짐", "다른 화면을 갔다 와도 알림 ON 상태가 유지됩니다.", "success");
     } catch {
-      alert("브라우저가 소리를 막고 있음. 화면을 한 번 클릭 후 다시 눌러봐.");
+      showToast("알림음 차단", "화면을 한 번 클릭한 뒤 다시 눌러주세요.", "danger");
     }
+  };
+
+  const disableSound = () => {
+    stopAlarm();
+    soundEnabledRef.current = false;
+    setSoundEnabled(false);
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem(SOUND_STORAGE_KEY, "false");
+    }
+
+    showToast("알림음 꺼짐", "신규 주문 소리 알림을 해제했습니다.", "info");
   };
 
   const requestNotification = async () => {
     if (!("Notification" in window)) {
-      alert("이 브라우저는 알림을 지원하지 않습니다.");
+      showToast("알림 미지원", "현재 브라우저는 푸시 알림을 지원하지 않습니다.", "danger");
       return;
     }
 
     const permission = await Notification.requestPermission();
 
     if (permission === "granted") {
-      alert("브라우저 알림 켜짐");
+      showToast("브라우저 알림 켜짐", "신규 주문 푸시 알림이 활성화됐습니다.", "success");
     } else {
-      alert("알림 권한이 허용되지 않았습니다.");
+      showToast("알림 권한 거부", "브라우저 알림 권한이 허용되지 않았습니다.", "danger");
     }
   };
 
@@ -355,6 +424,50 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const saved = localStorage.getItem(SOUND_STORAGE_KEY);
+
+    if (saved === "true") {
+      soundEnabledRef.current = true;
+      setSoundEnabled(true);
+
+      // Electron에서는 main.js의 autoplay-policy 설정이 있으면 자동 복원됨.
+      // 일반 브라우저에서는 최초 1회 클릭 전까지 소리가 막힐 수 있음.
+      if (audioRef.current) {
+        audioRef.current
+          .play()
+          .then(() => {
+            audioRef.current?.pause();
+            if (audioRef.current) audioRef.current.currentTime = 0;
+          })
+          .catch(() => {});
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const restoreSoundState = () => {
+      if (typeof window === "undefined") return;
+
+      const saved = localStorage.getItem(SOUND_STORAGE_KEY);
+
+      if (saved === "true") {
+        soundEnabledRef.current = true;
+        setSoundEnabled(true);
+      }
+    };
+
+    window.addEventListener("focus", restoreSoundState);
+    document.addEventListener("visibilitychange", restoreSoundState);
+
+    return () => {
+      window.removeEventListener("focus", restoreSoundState);
+      document.removeEventListener("visibilitychange", restoreSoundState);
+    };
+  }, []);
+
+  useEffect(() => {
     fetchOrders();
 
     const interval = setInterval(() => {
@@ -381,7 +494,7 @@ export default function AdminPage() {
       .maybeSingle();
 
     if (customerError) {
-      alert("스탬프 고객 조회 실패: " + customerError.message);
+      showToast("스탬프 고객 조회 실패", customerError.message, "danger");
       return;
     }
 
@@ -398,7 +511,7 @@ export default function AdminPage() {
           .eq("phone", phone);
 
         if (error) {
-          alert("스탬프 초기화 실패: " + error.message);
+          showToast("스탬프 초기화 실패", error.message, "danger");
           return;
         }
       } else {
@@ -409,7 +522,7 @@ export default function AdminPage() {
         });
 
         if (error) {
-          alert("스탬프 고객 생성 실패: " + error.message);
+          showToast("스탬프 고객 생성 실패", error.message, "danger");
           return;
         }
       }
@@ -424,7 +537,7 @@ export default function AdminPage() {
           .eq("phone", phone);
 
         if (error) {
-          alert("스탬프 적립 실패: " + error.message);
+          showToast("스탬프 적립 실패", error.message, "danger");
           return;
         }
       } else {
@@ -435,7 +548,7 @@ export default function AdminPage() {
         });
 
         if (error) {
-          alert("스탬프 신규 적립 실패: " + error.message);
+          showToast("스탬프 신규 적립 실패", error.message, "danger");
           return;
         }
       }
@@ -449,20 +562,20 @@ export default function AdminPage() {
       .eq("id", order.id);
 
     if (orderError) {
-      alert("스탬프 처리표시 실패: " + orderError.message);
+      showToast("스탬프 처리표시 실패", orderError.message, "danger");
     }
   };
 
   const changeStatus = async (order: Order, status: string) => {
     if (!canChangeStatus(order, status)) {
-      alert("이미 처리된 주문이라 해당 상태로 변경할 수 없습니다.");
+      showToast("상태 변경 불가", "이미 처리된 주문이라 해당 상태로 변경할 수 없습니다.", "danger");
       return;
     }
 
     const { error } = await supabase.from("orders").update({ status }).eq("id", order.id);
 
     if (error) {
-      alert(error.message);
+      showToast("상태 변경 실패", error.message, "danger");
       return;
     }
 
@@ -486,7 +599,7 @@ export default function AdminPage() {
       .eq("id", id);
 
     if (error) {
-      alert("예상시간 저장 실패: " + error.message);
+      showToast("예상시간 저장 실패", error.message, "danger");
       return;
     }
 
@@ -525,10 +638,10 @@ export default function AdminPage() {
     if (electronPrinter?.printReceipt) {
       try {
         await electronPrinter.printReceipt(text);
-        alert("테스트 출력 전송 완료");
+        showToast("테스트 출력 전송 완료", "COM4 프린터로 테스트 빌지를 전송했습니다.", "success");
         return;
       } catch (error) {
-        alert(String(error));
+        showToast("테스트 출력 실패", String(error), "danger");
         return;
       }
     }
@@ -536,7 +649,7 @@ export default function AdminPage() {
     const printWindow = window.open("", "_blank", "width=300,height=720");
 
     if (!printWindow) {
-      alert("팝업이 차단되었습니다. 팝업 허용 후 다시 눌러주세요.");
+      showToast("팝업 차단", "팝업 허용 후 다시 눌러주세요.", "danger");
       return;
     }
 
@@ -747,7 +860,7 @@ export default function AdminPage() {
     const electronPrinter = (window as any).hwangjePOS;
 
     if (!electronPrinter?.printReceipt) {
-      alert("황제POS.exe에서 실행해야 COM4 빌지 자동출력이 됩니다. 현재는 브라우저/PWA라서 직접출력을 사용할 수 없습니다.");
+      showToast("빌지 출력 불가", "황제POS.exe에서 실행해야 COM4 직접출력이 됩니다.", "danger");
       return false;
     }
 
@@ -755,7 +868,7 @@ export default function AdminPage() {
       await electronPrinter.printReceipt(`황제떡볶이\n${text}`);
       return true;
     } catch (error) {
-      alert("빌지 출력 실패: " + String(error));
+      showToast("빌지 출력 실패", String(error), "danger");
       return false;
     }
   };
@@ -801,6 +914,7 @@ export default function AdminPage() {
   const acceptWithPrint = async (order: Order) => {
     await printReceipt(order);
     await changeStatus(order, "접수완료");
+    showToast("주문 접수 완료", `오늘주문 #${getTodayOrderNumber(order.id)} 주문을 접수했습니다.`, "success");
   };
 
   const actionButtonClass = (order: Order, nextStatus: string, tone: string) => {
@@ -832,6 +946,16 @@ export default function AdminPage() {
 
     return () => clearTimeout(timer);
   }, [toastOrder]);
+
+  useEffect(() => {
+    if (!uiToast) return;
+
+    const timer = setTimeout(() => {
+      setUiToast(null);
+    }, 3600);
+
+    return () => clearTimeout(timer);
+  }, [uiToast]);
 
   useEffect(() => {
     if (!selectedOrderId && orders.length > 0) {
@@ -947,7 +1071,7 @@ export default function AdminPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                <button onClick={enableSound} className={`rounded-[9px] border px-3 py-2 text-xs font-black ${soundEnabled ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-[#d4af37]/35 bg-[#15120a] text-[#d4af37]"}`}>
+                <button onClick={soundEnabled ? disableSound : enableSound} className={`rounded-[9px] border px-3 py-2 text-xs font-black ${soundEnabled ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-[#d4af37]/35 bg-[#15120a] text-[#d4af37]"}`}>
                   {soundEnabled ? "음량 ON" : "음량"}
                 </button>
                 <button onClick={requestNotification} className="rounded-[9px] border border-zinc-700 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-300">푸시</button>
@@ -1141,7 +1265,25 @@ export default function AdminPage() {
                 <button disabled={!canChangeStatus(selectedOrder, "배달중")} onClick={() => changeStatus(selectedOrder, "배달중")} className={actionButtonClass(selectedOrder, "배달중", "line")}>배달중</button>
                 <button disabled={!canChangeStatus(selectedOrder, "완료")} onClick={() => changeStatus(selectedOrder, "완료")} className={actionButtonClass(selectedOrder, "완료", "line")}>완료</button>
                 <button onClick={() => printReceipt(selectedOrder)} className="rounded-[10px] border border-[#d4af37]/40 bg-[#111111] px-4 py-3 text-sm font-black text-[#d4af37] transition hover:bg-[#17130a]">빌지출력</button>
-                <button disabled={!canChangeStatus(selectedOrder, "주문취소")} onClick={() => { const ok = confirm("주문 취소하시겠습니까?"); if (ok) changeStatus(selectedOrder, "주문취소"); }} className={actionButtonClass(selectedOrder, "주문취소", "danger")}>취소</button>
+                <button
+                  disabled={!canChangeStatus(selectedOrder, "주문취소")}
+                  onClick={() =>
+                    showConfirm({
+                      title: "주문 취소",
+                      message: `오늘주문 #${getTodayOrderNumber(selectedOrder.id)} 주문을 취소하시겠습니까?`,
+                      confirmText: "취소 처리",
+                      cancelText: "닫기",
+                      tone: "danger",
+                      onConfirm: async () => {
+                        await changeStatus(selectedOrder, "주문취소");
+                        showToast("주문 취소 처리", `오늘주문 #${getTodayOrderNumber(selectedOrder.id)} 주문이 취소됐습니다.`, "danger");
+                      },
+                    })
+                  }
+                  className={actionButtonClass(selectedOrder, "주문취소", "danger")}
+                >
+                  취소
+                </button>
               </div>
 
               <div className="mt-5 rounded-[12px] border border-zinc-800 bg-[#101010] p-4">
@@ -1173,6 +1315,86 @@ export default function AdminPage() {
         </div>
       )}
 
+      {uiToast && (
+        <div className="fixed bottom-5 left-5 z-[1300] w-[390px] max-w-[calc(100vw-40px)] rounded-[14px] border border-[#d4af37]/35 bg-[#0b0b0b]/96 p-4 shadow-[0_24px_90px_rgba(0,0,0,.75)] backdrop-blur-xl">
+          <div className="flex items-start gap-3">
+            <div
+              className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_0_14px_currentColor] ${
+                uiToast.tone === "success"
+                  ? "bg-emerald-400 text-emerald-400"
+                  : uiToast.tone === "danger"
+                    ? "bg-red-400 text-red-400"
+                    : uiToast.tone === "info"
+                      ? "bg-sky-400 text-sky-400"
+                      : "bg-[#d4af37] text-[#d4af37]"
+              }`}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-black text-[#f0d98a]">{uiToast.title}</div>
+              {uiToast.message && (
+                <div className="mt-1 text-sm leading-relaxed text-zinc-300">
+                  {uiToast.message}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setUiToast(null)}
+              className="shrink-0 text-xl leading-none text-zinc-500 transition hover:text-white"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
+      {confirmDialog && (
+        <div className="fixed inset-0 z-[1400] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[16px] border border-[#d4af37]/40 bg-[#0b0b0b] p-5 shadow-[0_28px_100px_rgba(0,0,0,.78)]">
+            <div className="flex items-start gap-3">
+              <div
+                className={`mt-1 h-3 w-3 shrink-0 rounded-full shadow-[0_0_18px_currentColor] ${
+                  confirmDialog.tone === "danger"
+                    ? "bg-red-400 text-red-400"
+                    : "bg-[#d4af37] text-[#d4af37]"
+                }`}
+              />
+              <div>
+                <div className="text-xl font-black tracking-[-0.04em] text-[#f0d98a]">
+                  {confirmDialog.title}
+                </div>
+                <div className="mt-2 whitespace-pre-line text-sm leading-relaxed text-zinc-300">
+                  {confirmDialog.message}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={closeConfirm}
+                disabled={confirmLoading}
+                className="rounded-[10px] border border-zinc-700 bg-[#151515] px-4 py-3 text-sm font-black text-zinc-300 transition hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {confirmDialog.cancelText || "취소"}
+              </button>
+              <button
+                type="button"
+                onClick={runConfirm}
+                disabled={confirmLoading}
+                className={`rounded-[10px] px-4 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                  confirmDialog.tone === "danger"
+                    ? "border border-red-500/45 bg-red-600 text-white hover:bg-red-500"
+                    : "border border-[#d4af37]/60 bg-[#d4af37] text-black hover:bg-[#f0c75a]"
+                }`}
+              >
+                {confirmLoading ? "처리중..." : confirmDialog.confirmText || "확인"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {popupOrder && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-[14px] border border-[#d4af37]/45 bg-[#0d0d0d] p-5 shadow-[0_24px_90px_rgba(0,0,0,.7)]">
@@ -1188,7 +1410,25 @@ export default function AdminPage() {
 
             <div className="mt-5 grid grid-cols-3 gap-2">
               <button onClick={async () => { await acceptWithPrint(popupOrder); setPopupOrder(null); }} className="rounded-[10px] bg-[#d4af37] py-3 text-sm font-black text-black">접수+빌지</button>
-              <button onClick={() => { const ok = confirm("주문 취소하시겠습니까?"); if (!ok) return; changeStatus(popupOrder, "주문취소"); setPopupOrder(null); }} className="rounded-[10px] border border-red-500/40 bg-red-950/50 py-3 text-sm font-black text-red-200">취소</button>
+              <button
+                onClick={() =>
+                  showConfirm({
+                    title: "신규 주문 취소",
+                    message: `오늘주문 #${getTodayOrderNumber(popupOrder.id)} 주문을 취소하시겠습니까?`,
+                    confirmText: "취소 처리",
+                    cancelText: "닫기",
+                    tone: "danger",
+                    onConfirm: async () => {
+                      await changeStatus(popupOrder, "주문취소");
+                      setPopupOrder(null);
+                      showToast("주문 취소 처리", `오늘주문 #${getTodayOrderNumber(popupOrder.id)} 주문이 취소됐습니다.`, "danger");
+                    },
+                  })
+                }
+                className="rounded-[10px] border border-red-500/40 bg-red-950/50 py-3 text-sm font-black text-red-200"
+              >
+                취소
+              </button>
               <button onClick={() => setPopupOrder(null)} className="rounded-[10px] border border-zinc-700 bg-[#151515] py-3 text-sm font-black text-zinc-300">닫기</button>
             </div>
           </div>

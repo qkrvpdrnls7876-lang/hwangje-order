@@ -11,6 +11,7 @@ type Menu = {
   description: string | null;
   category: string | null;
   is_soldout: boolean;
+  sort_order: number | null;
 };
 
 type OptionGroup = {
@@ -19,6 +20,7 @@ type OptionGroup = {
   name: string;
   type: string;
   required: boolean;
+  sort_order: number | null;
 };
 
 type OptionItem = {
@@ -27,6 +29,7 @@ type OptionItem = {
   name: string;
   price: number;
   is_soldout: boolean;
+  sort_order: number | null;
 };
 
 type GroupMenuLink = {
@@ -34,6 +37,23 @@ type GroupMenuLink = {
   menu_id: number;
   group_id: number;
 };
+
+
+type ToastMessage = {
+  id: number;
+  title: string;
+  message: string;
+  tone: "success" | "error" | "warning" | "info";
+};
+
+type ConfirmDialog = {
+  title: string;
+  message: string;
+  confirmText: string;
+  cancelText: string;
+  tone: "danger" | "gold";
+  onConfirm: () => void | Promise<void>;
+} | null;
 
 export default function AdminMenuPage() {
   const router = useRouter();
@@ -76,20 +96,59 @@ export default function AdminMenuPage() {
     price: "",
   });
 
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog>(null);
+
+  const showToast = (
+    message: string,
+    title = "황제POS",
+    tone: ToastMessage["tone"] = "info",
+  ) => {
+    const nextToast = {
+      id: Date.now(),
+      title,
+      message,
+      tone,
+    };
+
+    setToast(nextToast);
+
+    window.setTimeout(() => {
+      setToast((current) =>
+        current?.id === nextToast.id ? null : current,
+      );
+    }, 4200);
+  };
+
+  const openConfirm = (dialog: ConfirmDialog) => {
+    setConfirmDialog(dialog);
+  };
+
+  const runConfirm = async () => {
+    if (!confirmDialog) return;
+
+    const action = confirmDialog.onConfirm;
+    setConfirmDialog(null);
+    await action();
+  };
+
   const fetchAll = async () => {
     const menusResult = await supabase
       .from("menus")
       .select("*")
+      .order("sort_order", { ascending: true, nullsFirst: false })
       .order("id", { ascending: true });
 
     const groupsResult = await supabase
       .from("menu_option_groups")
       .select("*")
+      .order("sort_order", { ascending: true, nullsFirst: false })
       .order("id", { ascending: true });
 
     const itemsResult = await supabase
       .from("menu_option_items")
       .select("*")
+      .order("sort_order", { ascending: true, nullsFirst: false })
       .order("id", { ascending: true });
 
     const linksResult = await supabase
@@ -98,22 +157,22 @@ export default function AdminMenuPage() {
       .order("id", { ascending: true });
 
     if (menusResult.error) {
-      alert("메뉴 불러오기 실패: " + menusResult.error.message);
+      showToast("메뉴 불러오기 실패: " + menusResult.error.message);
       return;
     }
 
     if (groupsResult.error) {
-      alert("옵션그룹 불러오기 실패: " + groupsResult.error.message);
+      showToast("옵션그룹 불러오기 실패: " + groupsResult.error.message);
       return;
     }
 
     if (itemsResult.error) {
-      alert("옵션항목 불러오기 실패: " + itemsResult.error.message);
+      showToast("옵션항목 불러오기 실패: " + itemsResult.error.message);
       return;
     }
 
     if (linksResult.error) {
-      alert(
+      showToast(
         "옵션그룹 연결정보 불러오기 실패: " +
           linksResult.error.message +
           "\nmenu_option_group_menus 테이블이 있는지 확인해주세요.",
@@ -121,8 +180,18 @@ export default function AdminMenuPage() {
       return;
     }
 
-    const menuData = menusResult.data || [];
-    const groupData = groupsResult.data || [];
+    const menuData = (menusResult.data || []).map((menu) => ({
+      ...menu,
+      sort_order: menu.sort_order ?? menu.id,
+    }));
+    const groupData = (groupsResult.data || []).map((group) => ({
+      ...group,
+      sort_order: group.sort_order ?? group.id,
+    }));
+    const itemData = (itemsResult.data || []).map((item) => ({
+      ...item,
+      sort_order: item.sort_order ?? item.id,
+    }));
     const linkData = linksResult.data || [];
 
     // 예전 구조(menu_option_groups.menu_id)로 만든 옵션그룹도 화면에서 계속 보이게 자동 보정
@@ -143,7 +212,7 @@ export default function AdminMenuPage() {
 
     setMenus(menuData);
     setGroups(groupData);
-    setItems(itemsResult.data || []);
+    setItems(itemData);
     setLinks([...linkData, ...legacyLinks]);
   };
 
@@ -207,11 +276,11 @@ export default function AdminMenuPage() {
 
     if (error) {
       if (isRlsError(error.message)) {
-        alert(getRlsPolicyMessage());
+        showToast(getRlsPolicyMessage());
         return false;
       }
 
-      alert("옵션그룹 연결 실패: " + error.message);
+      showToast("옵션그룹 연결 실패: " + error.message);
       return false;
     }
 
@@ -236,11 +305,11 @@ export default function AdminMenuPage() {
 
     if (error) {
       if (isRlsError(error.message)) {
-        alert(getRlsPolicyMessage());
+        showToast(getRlsPolicyMessage());
         return false;
       }
 
-      alert("옵션그룹 연결 삭제 실패: " + error.message);
+      showToast("옵션그룹 연결 삭제 실패: " + error.message);
       return false;
     }
 
@@ -249,14 +318,14 @@ export default function AdminMenuPage() {
 
   const addMenu = async () => {
     if (!form.name.trim()) {
-      alert("메뉴명을 입력하세요");
+      showToast("메뉴명을 입력하세요");
       return;
     }
 
     const priceNumber = parseInt(form.price);
 
     if (isNaN(priceNumber)) {
-      alert("가격은 숫자로 입력하세요");
+      showToast("가격은 숫자로 입력하세요");
       return;
     }
 
@@ -265,11 +334,12 @@ export default function AdminMenuPage() {
       price: priceNumber,
       description: form.description.trim(),
       category: form.category.trim(),
+      sort_order: getNextSortOrder(menus),
       is_soldout: false,
     });
 
     if (error) {
-      alert("메뉴 추가 실패: " + error.message);
+      showToast("메뉴 추가 실패: " + error.message);
       return;
     }
 
@@ -295,7 +365,7 @@ export default function AdminMenuPage() {
       .eq("id", id);
 
     if (error) {
-      alert("메뉴 수정 실패: " + error.message);
+      showToast("메뉴 수정 실패: " + error.message);
       return;
     }
 
@@ -309,7 +379,7 @@ export default function AdminMenuPage() {
       .eq("id", id);
 
     if (error) {
-      alert("품절 변경 실패: " + error.message);
+      showToast("품절 변경 실패: " + error.message);
       return;
     }
 
@@ -317,22 +387,26 @@ export default function AdminMenuPage() {
   };
 
   const deleteMenu = async (id: number) => {
-    const ok = confirm(
-      "메뉴를 삭제할까요? 연결된 옵션도 같이 삭제될 수 있습니다.",
-    );
+    openConfirm({
+      title: "메뉴 삭제",
+      message: "메뉴를 삭제할까요? 연결된 옵션도 같이 삭제될 수 있습니다.",
+      confirmText: "삭제",
+      cancelText: "취소",
+      tone: "danger",
+      onConfirm: async () => {
+        await deleteGroupMenuLinks({ menu_id: id });
 
-    if (!ok) return;
+        const { error } = await supabase.from("menus").delete().eq("id", id);
 
-    await deleteGroupMenuLinks({ menu_id: id });
+        if (error) {
+          showToast("메뉴 삭제 실패: " + error.message, "삭제 실패", "error");
+          return;
+        }
 
-    const { error } = await supabase.from("menus").delete().eq("id", id);
-
-    if (error) {
-      alert("메뉴 삭제 실패: " + error.message);
-      return;
-    }
-
-    fetchAll();
+        showToast("메뉴를 삭제했습니다.", "삭제 완료", "success");
+        fetchAll();
+      },
+    });
   };
 
   const toggleSelectedMenu = (menuId: number) => {
@@ -353,12 +427,12 @@ export default function AdminMenuPage() {
 
   const addGroup = async () => {
     if (!groupForm.name.trim()) {
-      alert("옵션그룹 이름을 입력하세요");
+      showToast("옵션그룹 이름을 입력하세요");
       return;
     }
 
     if (selectedMenuIds.length === 0) {
-      alert("연결할 메뉴를 1개 이상 선택하세요");
+      showToast("연결할 메뉴를 1개 이상 선택하세요");
       return;
     }
 
@@ -371,24 +445,25 @@ export default function AdminMenuPage() {
         name: groupForm.name.trim(),
         type: groupForm.type,
         required: groupForm.required,
+        sort_order: getNextSortOrder(groups),
       })
       .select("id")
       .single();
 
     if (error) {
-      alert("옵션그룹 추가 실패: " + error.message);
+      showToast("옵션그룹 추가 실패: " + error.message);
       return;
     }
 
     if (!data?.id) {
-      alert("옵션그룹 ID 생성 실패");
+      showToast("옵션그룹 ID 생성 실패");
       return;
     }
 
     const linked = await insertGroupMenuLinks(data.id, selectedMenuIds);
 
     if (!linked) {
-      alert(
+      showToast(
         "옵션그룹 자체는 생성됐지만 연결 저장이 막혔습니다.\nSupabase RLS 정책 적용 후 다시 연결해주세요.",
       );
       fetchAll();
@@ -406,25 +481,29 @@ export default function AdminMenuPage() {
   };
 
   const deleteGroup = async (id: number) => {
-    const ok = confirm(
-      "옵션그룹을 삭제할까요? 안에 있는 옵션항목도 같이 삭제됩니다.",
-    );
+    openConfirm({
+      title: "옵션그룹 삭제",
+      message: "옵션그룹을 삭제할까요? 안에 있는 옵션항목도 같이 삭제됩니다.",
+      confirmText: "삭제",
+      cancelText: "취소",
+      tone: "danger",
+      onConfirm: async () => {
+        await deleteGroupMenuLinks({ group_id: id });
 
-    if (!ok) return;
+        const { error } = await supabase
+          .from("menu_option_groups")
+          .delete()
+          .eq("id", id);
 
-    await deleteGroupMenuLinks({ group_id: id });
+        if (error) {
+          showToast("옵션그룹 삭제 실패: " + error.message, "삭제 실패", "error");
+          return;
+        }
 
-    const { error } = await supabase
-      .from("menu_option_groups")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      alert("옵션그룹 삭제 실패: " + error.message);
-      return;
-    }
-
-    fetchAll();
+        showToast("옵션그룹을 삭제했습니다.", "삭제 완료", "success");
+        fetchAll();
+      },
+    });
   };
 
   const updateGroup = async (
@@ -437,7 +516,7 @@ export default function AdminMenuPage() {
       .eq("id", id);
 
     if (error) {
-      alert("옵션그룹 수정 실패: " + error.message);
+      showToast("옵션그룹 수정 실패: " + error.message);
       return;
     }
 
@@ -468,7 +547,7 @@ export default function AdminMenuPage() {
     );
 
     if (!realLink) {
-      alert(
+      showToast(
         "기존 방식으로 붙어있는 기본 연결입니다. 그룹을 삭제하거나 새 공용그룹으로 다시 만들어주세요.",
       );
       return;
@@ -512,19 +591,19 @@ export default function AdminMenuPage() {
 
   const addItem = async () => {
     if (!itemForm.group_id) {
-      alert("옵션그룹을 선택하세요");
+      showToast("옵션그룹을 선택하세요");
       return;
     }
 
     if (!itemForm.name.trim()) {
-      alert("옵션명을 입력하세요");
+      showToast("옵션명을 입력하세요");
       return;
     }
 
     const priceNumber = itemForm.price.trim() ? parseInt(itemForm.price) : 0;
 
     if (isNaN(priceNumber)) {
-      alert("옵션 가격은 숫자로 입력하세요");
+      showToast("옵션 가격은 숫자로 입력하세요");
       return;
     }
 
@@ -532,11 +611,12 @@ export default function AdminMenuPage() {
       group_id: Number(itemForm.group_id),
       name: itemForm.name.trim(),
       price: priceNumber,
+      sort_order: getNextSortOrder(getItemsByGroupId(Number(itemForm.group_id))),
       is_soldout: false,
     });
 
     if (error) {
-      alert("옵션항목 추가 실패: " + error.message);
+      showToast("옵션항목 추가 실패: " + error.message);
       return;
     }
 
@@ -561,7 +641,7 @@ export default function AdminMenuPage() {
       .eq("id", id);
 
     if (error) {
-      alert("옵션항목 수정 실패: " + error.message);
+      showToast("옵션항목 수정 실패: " + error.message);
       return;
     }
 
@@ -575,7 +655,7 @@ export default function AdminMenuPage() {
       .eq("id", id);
 
     if (error) {
-      alert("옵션 품절 변경 실패: " + error.message);
+      showToast("옵션 품절 변경 실패: " + error.message);
       return;
     }
 
@@ -583,21 +663,27 @@ export default function AdminMenuPage() {
   };
 
   const deleteItem = async (id: number) => {
-    const ok = confirm("옵션항목을 삭제할까요?");
+    openConfirm({
+      title: "옵션항목 삭제",
+      message: "옵션항목을 삭제할까요?",
+      confirmText: "삭제",
+      cancelText: "취소",
+      tone: "danger",
+      onConfirm: async () => {
+        const { error } = await supabase
+          .from("menu_option_items")
+          .delete()
+          .eq("id", id);
 
-    if (!ok) return;
+        if (error) {
+          showToast("옵션항목 삭제 실패: " + error.message, "삭제 실패", "error");
+          return;
+        }
 
-    const { error } = await supabase
-      .from("menu_option_items")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      alert("옵션항목 삭제 실패: " + error.message);
-      return;
-    }
-
-    fetchAll();
+        showToast("옵션항목을 삭제했습니다.", "삭제 완료", "success");
+        fetchAll();
+      },
+    });
   };
 
   const toggleMenuOptionOpen = (menuId: number) => {
@@ -633,7 +719,9 @@ export default function AdminMenuPage() {
   };
 
   const getItemsByGroupId = (groupId: number) => {
-    return items.filter((item) => item.group_id === groupId);
+    return items
+      .filter((item) => item.group_id === groupId)
+      .sort((a, b) => getSortOrder(a) - getSortOrder(b));
   };
 
   const getMenuNamesByGroupId = (groupId: number) => {
@@ -644,6 +732,91 @@ export default function AdminMenuPage() {
     return menus
       .filter((menu) => menuIds.includes(menu.id))
       .map((menu) => menu.name);
+  };
+
+  const getSortOrder = (item: { id: number; sort_order: number | null }) => {
+    return Number(item.sort_order ?? item.id);
+  };
+
+  const getNextSortOrder = (list: { id: number; sort_order: number | null }[]) => {
+    if (list.length === 0) return 10;
+    return Math.max(...list.map((item) => getSortOrder(item))) + 10;
+  };
+
+  const swapSortOrder = async (params: {
+    table: "menus" | "menu_option_groups" | "menu_option_items";
+    current: { id: number; sort_order: number | null };
+    target: { id: number; sort_order: number | null };
+    successMessage: string;
+  }) => {
+    const currentSort = getSortOrder(params.current);
+    const targetSort = getSortOrder(params.target);
+
+    const first = await supabase
+      .from(params.table)
+      .update({ sort_order: targetSort })
+      .eq("id", params.current.id);
+
+    if (first.error) {
+      showToast("순서 변경 실패: " + first.error.message, "변경 실패", "error");
+      return;
+    }
+
+    const second = await supabase
+      .from(params.table)
+      .update({ sort_order: currentSort })
+      .eq("id", params.target.id);
+
+    if (second.error) {
+      showToast("순서 변경 실패: " + second.error.message, "변경 실패", "error");
+      return;
+    }
+
+    showToast(params.successMessage, "순서 변경 완료", "success");
+    fetchAll();
+  };
+
+  const moveMenu = async (menuId: number, direction: "up" | "down") => {
+    const index = menus.findIndex((menu) => menu.id === menuId);
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+
+    if (index < 0 || targetIndex < 0 || targetIndex >= menus.length) return;
+
+    await swapSortOrder({
+      table: "menus",
+      current: menus[index],
+      target: menus[targetIndex],
+      successMessage: "메뉴 순서를 변경했습니다.",
+    });
+  };
+
+  const moveGroup = async (groupId: number, direction: "up" | "down") => {
+    const index = groups.findIndex((group) => group.id === groupId);
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+
+    if (index < 0 || targetIndex < 0 || targetIndex >= groups.length) return;
+
+    await swapSortOrder({
+      table: "menu_option_groups",
+      current: groups[index],
+      target: groups[targetIndex],
+      successMessage: "옵션그룹 순서를 변경했습니다.",
+    });
+  };
+
+  const moveItem = async (groupId: number, itemId: number, direction: "up" | "down") => {
+    const groupItems = getItemsByGroupId(groupId);
+    const index = groupItems.findIndex((item) => item.id === itemId);
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+
+    if (index < 0 || targetIndex < 0 || targetIndex >= groupItems.length) return;
+
+    await swapSortOrder({
+      table: "menu_option_items",
+      current: groupItems[index],
+      target: groupItems[targetIndex],
+      successMessage: "옵션항목 순서를 변경했습니다.",
+    });
   };
 
   const totalOptions = items.length;
@@ -1129,7 +1302,7 @@ const compactInputClass =
                 )}
 
                 <div className={`${hwangjeScrollClass} hwangje-scroll space-y-3`}>
-                  {groups.map((group) => {
+                  {groups.map((group, groupIndex) => {
                     const groupMenusOpen = openGroupMenuIds.includes(group.id);
                     const groupItemsOpen = openGroupItemIds.includes(group.id);
                     const linkedMenuNames = getMenuNamesByGroupId(group.id);
@@ -1170,6 +1343,25 @@ const compactInputClass =
                             />
                             필수
                           </label>
+                        </div>
+
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => moveGroup(group.id, "up")}
+                            disabled={groupIndex === 0}
+                            className="rounded-[8px] border border-[#d4af37]/25 bg-[#101010] px-2.5 py-2 text-[11px] font-black text-[#d4af37] transition hover:border-[#d4af37] disabled:border-zinc-800 disabled:text-zinc-600"
+                          >
+                            ↑ 위로
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveGroup(group.id, "down")}
+                            disabled={groupIndex === groups.length - 1}
+                            className="rounded-[8px] border border-[#d4af37]/25 bg-[#101010] px-2.5 py-2 text-[11px] font-black text-[#d4af37] transition hover:border-[#d4af37] disabled:border-zinc-800 disabled:text-zinc-600"
+                          >
+                            ↓ 아래로
+                          </button>
                         </div>
 
                         <div className="mt-2 grid gap-2 md:grid-cols-2">
@@ -1217,7 +1409,7 @@ const compactInputClass =
                         {groupMenusOpen && (
                           <div className="mt-2 rounded-[10px] border border-zinc-800 bg-[#101010] p-3">
                             <div className="grid max-h-[260px] gap-2 overflow-y-auto pr-1 hwangje-scroll md:grid-cols-2">
-                              {menus.map((menu) => {
+                              {menus.map((menu, menuIndex) => {
                                 const checked = links.some(
                                   (link) =>
                                     link.group_id === group.id &&
@@ -1248,7 +1440,7 @@ const compactInputClass =
                         {groupItemsOpen && (
                           <div className="mt-2 rounded-[10px] border border-zinc-800 bg-[#101010] p-3">
                             <div className="grid max-h-[360px] gap-2 overflow-y-auto pr-1 hwangje-scroll md:grid-cols-2">
-                              {groupItems.map((item) => (
+                              {groupItems.map((item, itemIndex) => (
                                 <div
                                   key={item.id}
                                   className="rounded-[9px] border border-zinc-800 bg-[#070707] p-2.5"
@@ -1267,6 +1459,24 @@ const compactInputClass =
                                     }
                                     className={`${compactInputClass} mt-2 text-[#d4af37]`}
                                   />
+                                  <div className="mt-2 grid grid-cols-2 gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => moveItem(group.id, item.id, "up")}
+                                      disabled={itemIndex === 0}
+                                      className="rounded-[8px] border border-[#d4af37]/25 bg-[#101010] px-2.5 py-2 text-[11px] font-black text-[#d4af37] transition hover:border-[#d4af37] disabled:border-zinc-800 disabled:text-zinc-600"
+                                    >
+                                      ↑ 위
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => moveItem(group.id, item.id, "down")}
+                                      disabled={itemIndex === groupItems.length - 1}
+                                      className="rounded-[8px] border border-[#d4af37]/25 bg-[#101010] px-2.5 py-2 text-[11px] font-black text-[#d4af37] transition hover:border-[#d4af37] disabled:border-zinc-800 disabled:text-zinc-600"
+                                    >
+                                      ↓ 아래
+                                    </button>
+                                  </div>
                                   <div className="mt-2 grid grid-cols-2 gap-2">
                                     <button
                                       onClick={() =>
@@ -1332,7 +1542,7 @@ const compactInputClass =
                 )}
 
                 <div className={`${hwangjeScrollClass} hwangje-scroll space-y-2`}>
-                  {menus.map((menu) => {
+                  {menus.map((menu, menuIndex) => {
                     const menuGroups = getGroupsByMenuId(menu.id);
                     const optionOpen = openMenuOptionIds.includes(menu.id);
 
@@ -1344,21 +1554,39 @@ const compactInputClass =
                         <div className="mb-2 flex items-center justify-between gap-2">
                           <div className="min-w-0">
                             <div className="text-[10px] font-bold text-zinc-600">
-                              MENU ID {menu.id}
+                              MENU ID {menu.id} · SORT {getSortOrder(menu)}
                             </div>
                             <div className="mt-0.5 truncate text-sm font-black text-zinc-100">
                               {menu.name || "메뉴명 없음"}
                             </div>
                           </div>
 
-                          <div
-                            className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-black ${
-                              menu.is_soldout
-                                ? "border-red-500/40 bg-red-950/40 text-red-300"
-                                : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                            }`}
-                          >
-                            {menu.is_soldout ? "품절" : "판매중"}
+                          <div className="flex shrink-0 items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => moveMenu(menu.id, "up")}
+                              disabled={menuIndex === 0}
+                              className="rounded-md border border-[#d4af37]/25 bg-[#101010] px-2 py-1 text-[11px] font-black text-[#d4af37] transition hover:border-[#d4af37] disabled:border-zinc-800 disabled:text-zinc-600"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveMenu(menu.id, "down")}
+                              disabled={menuIndex === menus.length - 1}
+                              className="rounded-md border border-[#d4af37]/25 bg-[#101010] px-2 py-1 text-[11px] font-black text-[#d4af37] transition hover:border-[#d4af37] disabled:border-zinc-800 disabled:text-zinc-600"
+                            >
+                              ↓
+                            </button>
+                            <div
+                              className={`rounded-md border px-2 py-1 text-[11px] font-black ${
+                                menu.is_soldout
+                                  ? "border-red-500/40 bg-red-950/40 text-red-300"
+                                  : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                              }`}
+                            >
+                              {menu.is_soldout ? "품절" : "판매중"}
+                            </div>
                           </div>
                         </div>
 
@@ -1482,6 +1710,77 @@ const compactInputClass =
           </div>
         </section>
       </div>
+
+      {toast && (
+        <div className="fixed bottom-5 right-5 z-[1400] w-[380px] max-w-[calc(100vw-32px)] rounded-[14px] border border-[#d4af37]/35 bg-[#0b0b0b]/96 p-4 text-sm shadow-[0_22px_80px_rgba(0,0,0,.75)] backdrop-blur-xl">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div
+                className={`font-black ${
+                  toast.tone === "error"
+                    ? "text-red-300"
+                    : toast.tone === "success"
+                      ? "text-emerald-300"
+                      : toast.tone === "warning"
+                        ? "text-amber-300"
+                        : "text-[#f0d98a]"
+                }`}
+              >
+                {toast.title}
+              </div>
+              <div className="mt-2 whitespace-pre-line leading-relaxed text-zinc-300">
+                {toast.message}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="shrink-0 text-xl leading-none text-zinc-500 transition hover:text-white"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
+      {confirmDialog && (
+        <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[16px] border border-[#d4af37]/40 bg-[#0d0d0d] p-5 shadow-[0_28px_100px_rgba(0,0,0,.78)]">
+            <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[#d4af37]">
+              HWANGJE POS
+            </div>
+            <div className="mt-2 text-2xl font-black tracking-[-0.05em] text-zinc-100">
+              {confirmDialog.title}
+            </div>
+            <div className="mt-3 whitespace-pre-line text-sm font-bold leading-relaxed text-zinc-400">
+              {confirmDialog.message}
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDialog(null)}
+                className="rounded-[10px] border border-zinc-700 bg-[#111111] px-4 py-3 text-sm font-black text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+              >
+                {confirmDialog.cancelText}
+              </button>
+              <button
+                type="button"
+                onClick={runConfirm}
+                className={`rounded-[10px] px-4 py-3 text-sm font-black transition ${
+                  confirmDialog.tone === "danger"
+                    ? "border border-red-500/40 bg-red-950/60 text-red-200 hover:bg-red-900/70"
+                    : "border border-[#d4af37]/60 bg-[#d4af37] text-black hover:bg-[#f0c75a]"
+                }`}
+              >
+                {confirmDialog.confirmText}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }

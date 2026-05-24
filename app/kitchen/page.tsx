@@ -33,6 +33,13 @@ type MenuLine = {
   options?: MenuOptionLine[];
 };
 
+type Toast = {
+  id: number;
+  tone: "success" | "error" | "info";
+  title: string;
+  message?: string;
+};
+
 export default function KitchenPage() {
   const router = useRouter();
 
@@ -40,11 +47,29 @@ export default function KitchenPage() {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [newOrderAlert, setNewOrderAlert] = useState(false);
   const [openMemoIds, setOpenMemoIds] = useState<number[]>([]);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const SOUND_STORAGE_KEY = "hwangje_kitchen_sound_enabled";
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const firstLoadRef = useRef(true);
   const lastIdsRef = useRef<number[]>([]);
   const alarmRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const showToast = (toast: Omit<Toast, "id">) => {
+    const id = Date.now() + Math.random();
+    const nextToast = { ...toast, id };
+
+    setToasts((prev) => [nextToast, ...prev].slice(0, 4));
+
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((item) => item.id !== id));
+    }, 4200);
+  };
+
+  const removeToast = (id: number) => {
+    setToasts((prev) => prev.filter((item) => item.id !== id));
+  };
 
   const goBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -103,6 +128,16 @@ export default function KitchenPage() {
   };
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const savedSound = window.localStorage.getItem(SOUND_STORAGE_KEY);
+
+    if (savedSound === "true") {
+      setSoundEnabled(true);
+    }
+  }, []);
+
+  useEffect(() => {
     fetchOrders();
 
     const interval = setInterval(() => {
@@ -124,9 +159,22 @@ export default function KitchenPage() {
       audioRef.current.currentTime = 0;
 
       setSoundEnabled(true);
-      alert("주방 알림음 켜짐");
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(SOUND_STORAGE_KEY, "true");
+      }
+
+      showToast({
+        tone: "success",
+        title: "주방 알림음 ON",
+        message: "다른 화면으로 이동해도 주방 알림 설정을 유지합니다.",
+      });
     } catch {
-      alert("브라우저가 소리를 막고 있습니다. 화면을 누른 뒤 다시 시도해주세요.");
+      showToast({
+        tone: "error",
+        title: "알림음 차단됨",
+        message: "화면을 한 번 누른 뒤 다시 알림 켜기를 눌러주세요.",
+      });
     }
   };
 
@@ -196,7 +244,11 @@ export default function KitchenPage() {
       .eq("id", order.id);
 
     if (error) {
-      alert("상태 변경 실패: " + error.message);
+      showToast({
+        tone: "error",
+        title: "상태 변경 실패",
+        message: error.message,
+      });
       return;
     }
 
@@ -396,6 +448,11 @@ export default function KitchenPage() {
                   onClick={() => {
                     stopAlarm();
                     setNewOrderAlert(false);
+                    showToast({
+                      tone: "info",
+                      title: "현재 알림 정지",
+                      message: "알림음 ON 설정은 유지됩니다.",
+                    });
                   }}
                   className="rounded-[10px] border border-red-500/35 bg-red-950/30 px-4 py-3 text-sm font-black text-red-300 transition hover:bg-red-900/40"
                 >
@@ -477,6 +534,48 @@ export default function KitchenPage() {
             </div>
           )}
         </section>
+      </div>
+
+
+      <div className="fixed bottom-5 right-5 z-[1300] flex w-[420px] max-w-[calc(100vw-40px)] flex-col gap-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`rounded-[14px] border bg-[#0b0b0b]/96 p-4 shadow-[0_20px_80px_rgba(0,0,0,.68)] backdrop-blur-xl ${
+              toast.tone === "success"
+                ? "border-[#d4af37]/45"
+                : toast.tone === "error"
+                  ? "border-red-500/45"
+                  : "border-zinc-700"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div
+                  className={`text-sm font-black ${
+                    toast.tone === "error" ? "text-red-300" : "text-[#f0d98a]"
+                  }`}
+                >
+                  {toast.title}
+                </div>
+
+                {toast.message && (
+                  <div className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">
+                    {toast.message}
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => removeToast(toast.id)}
+                className="text-xl leading-none text-zinc-500 transition hover:text-white"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </main>
   );

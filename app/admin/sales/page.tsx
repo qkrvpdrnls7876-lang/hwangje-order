@@ -31,6 +31,13 @@ type MenuLine = {
   }[];
 };
 
+type Toast = {
+  id: number;
+  title: string;
+  message: string;
+  tone: "success" | "error" | "info";
+};
+
 export default function AdminSalesPage() {
   const router = useRouter();
 
@@ -44,6 +51,22 @@ export default function AdminSalesPage() {
   const [loading, setLoading] = useState(false);
   const [openOrderIds, setOpenOrderIds] = useState<number[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
+
+  const showToast = (title: string, message: string, tone: Toast["tone"] = "info") => {
+    const nextToast = {
+      id: Date.now(),
+      title,
+      message,
+      tone,
+    };
+
+    setToast(nextToast);
+
+    window.setTimeout(() => {
+      setToast((current) => (current?.id === nextToast.id ? null : current));
+    }, 4200);
+  };
 
   const goBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -88,7 +111,7 @@ export default function AdminSalesPage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      alert("매출 불러오기 실패: " + error.message);
+      showToast("매출 불러오기 실패", error.message, "error");
       setLoading(false);
       return;
     }
@@ -1044,6 +1067,38 @@ export default function AdminSalesPage() {
           </div>
         </section>
       </div>
+
+
+      {toast && (
+        <div className="fixed bottom-5 right-5 z-[1400] w-[360px] max-w-[calc(100vw-32px)] rounded-[14px] border border-[#d4af37]/35 bg-[#0b0b0b]/96 p-4 shadow-[0_22px_80px_rgba(0,0,0,.72)] backdrop-blur-xl">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div
+                className={`text-sm font-black ${
+                  toast.tone === "error"
+                    ? "text-red-300"
+                    : toast.tone === "success"
+                      ? "text-emerald-300"
+                      : "text-[#f0d98a]"
+                }`}
+              >
+                {toast.title}
+              </div>
+              <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">
+                {toast.message}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="rounded-md px-2 text-xl leading-none text-zinc-500 transition hover:bg-white/[0.05] hover:text-white"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
