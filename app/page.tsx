@@ -104,6 +104,7 @@ const [links, setLinks] = useState<GroupMenuLink[]>([]);
   const [selectedOptions, setSelectedOptions] = useState<
     Record<number, OptionItem[]>
   >({});
+  const [optionModalQty, setOptionModalQty] = useState(1);
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState("");
   const [showDeliveryRequests, setShowDeliveryRequests] = useState(false);
@@ -984,11 +985,13 @@ return groups.filter(
 
     setSelectedMenu(menu);
     setSelectedOptions({});
+    setOptionModalQty(1);
   };
 
   const closeOptionModal = () => {
     setSelectedMenu(null);
     setSelectedOptions({});
+    setOptionModalQty(1);
   };
 
   const toggleOption = (group: OptionGroup, option: OptionItem) => {
@@ -1054,9 +1057,9 @@ return groups.filter(
         menuId: selectedMenu.id,
         name: selectedMenu.name,
         basePrice: selectedMenu.price,
-        qty: 1,
+        qty: optionModalQty,
         options,
-        total: selectedMenuTotal,
+        total: selectedMenuTotal * optionModalQty,
       },
     ]);
 
@@ -2279,96 +2282,208 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
         )}
 
         {selectedMenu && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505]/92 p-4">
-            <div className="max-h-[86vh] w-full max-w-md overflow-y-auto rounded-3xl border border-[#d4af3735] bg-gradient-to-b from-[#111111] to-[#050505] p-3 shadow-[0_0_55px_rgba(212,175,55,.18)] md:max-w-lg">
-              <div className="mb-3 flex justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-black text-[#f4d56d] md:text-xl">
-                    {selectedMenu.name}
-                  </h2>
+          <div className="fixed inset-0 z-[90] bg-[#050505] text-white">
+            <div className="flex h-[100dvh] flex-col overflow-hidden">
+              <div className="relative shrink-0 border-b border-[#d4af3730] bg-gradient-to-b from-[#151006] via-[#0b0b0b] to-[#050505] px-4 pb-5 pt-[max(14px,env(safe-area-inset-top))] shadow-[0_12px_40px_rgba(0,0,0,.55)]">
+                <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_22%_15%,rgba(244,213,109,.22),transparent_32%),radial-gradient(circle_at_80%_0%,rgba(212,175,55,.14),transparent_28%)]" />
 
-                  <div className="mt-1 text-sm text-zinc-400">
-                    기본가격 {selectedMenu.price.toLocaleString()}원
+                <div className="relative flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={closeOptionModal}
+                    className="grid h-10 w-10 place-items-center rounded-full border border-[#d4af3740] bg-black/45 text-xl font-black text-[#fff2b8] shadow-lg shadow-black/40"
+                    aria-label="메뉴 상세 닫기"
+                  >
+                    ‹
+                  </button>
+
+                  <div className="min-w-0 flex-1 text-center">
+                    <div className="truncate text-[11px] font-black uppercase tracking-[0.22em] text-[#d4af37]">
+                      HWANGJE ORDER
+                    </div>
+                    <div className="truncate text-sm font-black text-[#fff8d9]">메뉴 상세</div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={scrollToCart}
+                    className="grid h-10 min-w-10 place-items-center rounded-full border border-[#d4af3740] bg-black/45 px-3 text-sm font-black text-[#f4d56d] shadow-lg shadow-black/40"
+                    aria-label="장바구니로 이동"
+                  >
+                    🛒
+                  </button>
+                </div>
+
+                <div className="relative mt-5 overflow-hidden rounded-[28px] border border-[#d4af3735] bg-gradient-to-br from-[#1a1304] via-[#111111] to-[#050505] p-5 shadow-[0_0_42px_rgba(212,175,55,.14)]">
+                  <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#d4af37]/10 blur-2xl" />
+                  <div className="absolute -bottom-16 -left-16 h-40 w-40 rounded-full bg-[#fff1a8]/8 blur-3xl" />
+
+                  <div className="relative flex min-h-[150px] flex-col justify-between">
+                    <div>
+                      <div className="mb-2 inline-flex rounded-full border border-[#d4af3745] bg-black/35 px-3 py-1 text-[11px] font-black text-[#f4d56d]">
+                        황제떡볶이 대표 메뉴
+                      </div>
+
+                      <h2 className="text-[26px] font-black leading-tight tracking-[-0.06em] text-[#fff6cf] md:text-3xl">
+                        {selectedMenu.name}
+                      </h2>
+
+                      {selectedMenu.description && (
+                        <p className="mt-2 text-sm font-medium leading-relaxed text-zinc-300 md:text-base">
+                          {selectedMenu.description}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mt-5 flex items-end justify-between gap-3">
+                      <div>
+                        <div className="text-[11px] font-bold text-zinc-500">기본가격</div>
+                        <div className="text-2xl font-black text-[#f4d56d]">
+                          {selectedMenu.price.toLocaleString()}원
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-[#d4af3730] bg-black/35 px-3 py-2 text-right">
+                        <div className="text-[10px] font-black text-zinc-500">옵션 포함</div>
+                        <div className="text-sm font-black text-[#fff2b8]">
+                          {selectedMenuTotal.toLocaleString()}원
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-32 pt-4 [-webkit-overflow-scrolling:touch]">
+                {getGroupsByMenuId(selectedMenu.id).length === 0 && (
+                  <div className="rounded-2xl border border-[#d4af3724] bg-[#101010] p-4 text-sm font-bold text-zinc-400">
+                    추가 옵션 없이 바로 담을 수 있습니다.
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  {getGroupsByMenuId(selectedMenu.id).map((group) => (
+                    <section
+                      key={group.id}
+                      className="overflow-hidden rounded-[24px] border border-[#d4af372c] bg-gradient-to-b from-[#111111] to-[#070707] shadow-[0_0_24px_rgba(212,175,55,.08)]"
+                    >
+                      <div className="border-b border-[#d4af371d] bg-[#0c0c0c] px-4 py-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <h3 className="text-base font-black tracking-[-0.04em] text-[#fff8d9]">
+                              {group.name}
+                            </h3>
+                            <p className="mt-0.5 text-xs font-bold text-zinc-500">
+                              {group.type === "single" ? "하나만 선택" : "여러 개 선택"}
+                            </p>
+                          </div>
+
+                          <span
+                            className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-black ${
+                              group.required
+                                ? "bg-[#d4af37] text-black"
+                                : "border border-[#d4af3735] text-[#f4d56d]"
+                            }`}
+                          >
+                            {group.required ? "필수" : "선택"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="divide-y divide-[#ffffff0c]">
+                        {getItemsByGroupId(group.id).map((option) => {
+                          const checked =
+                            selectedOptions[group.id]?.some(
+                              (item) => item.id === option.id,
+                            ) || false;
+
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              onClick={() => toggleOption(group, option)}
+                              disabled={option.is_soldout}
+                              className={`flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition active:scale-[0.99] ${
+                                option.is_soldout
+                                  ? "bg-zinc-900/60 text-zinc-600"
+                                  : checked
+                                    ? "bg-[#d4af37]/12"
+                                    : "bg-transparent text-white"
+                              }`}
+                            >
+                              <div className="flex min-w-0 items-center gap-3">
+                                <span
+                                  className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border text-[11px] font-black ${
+                                    checked
+                                      ? "border-[#d4af37] bg-[#d4af37] text-black"
+                                      : "border-zinc-700 text-zinc-700"
+                                  }`}
+                                >
+                                  {checked ? "✓" : ""}
+                                </span>
+
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm font-black text-[#fff8d9]">
+                                    {option.name}
+                                    {option.is_soldout && " (품절)"}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="shrink-0 text-sm font-black text-[#f4d56d]">
+                                {option.price > 0
+                                  ? `+${option.price.toLocaleString()}원`
+                                  : "무료"}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              </div>
+
+              <div className="fixed bottom-0 left-0 right-0 z-[95] border-t border-[#d4af3735] bg-[#080808]/96 px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-18px_50px_rgba(0,0,0,.72)] backdrop-blur-xl">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center rounded-full border border-[#d4af3735] bg-[#111111] p-1">
+                    <button
+                      type="button"
+                      onClick={() => setOptionModalQty((prev) => Math.max(1, prev - 1))}
+                      className="grid h-9 w-9 place-items-center rounded-full bg-zinc-900 text-lg font-black text-[#f4d56d]"
+                      aria-label="수량 감소"
+                    >
+                      -
+                    </button>
+                    <div className="min-w-12 text-center text-base font-black text-[#fff8d9]">
+                      {optionModalQty}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setOptionModalQty((prev) => prev + 1)}
+                      className="grid h-9 w-9 place-items-center rounded-full bg-[#d4af37] text-lg font-black text-black"
+                      aria-label="수량 증가"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <div className="text-right">
+                    <div className="text-[11px] font-bold text-zinc-500">총 합계</div>
+                    <div className="text-xl font-black text-[#f4d56d]">
+                      {(selectedMenuTotal * optionModalQty).toLocaleString()}원
+                    </div>
                   </div>
                 </div>
 
                 <button
-                  onClick={closeOptionModal}
-                  className="h-fit rounded-lg bg-zinc-700 px-3 py-1.5 text-sm font-black"
+                  type="button"
+                  onClick={addCartWithOptions}
+                  className="w-full rounded-2xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] p-4 text-base font-black text-black shadow-[0_0_30px_rgba(212,175,55,.28)] active:scale-[0.99]"
                 >
-                  닫기
+                  {(selectedMenuTotal * optionModalQty).toLocaleString()}원 담기
                 </button>
               </div>
-
-              <div className="space-y-3">
-                {getGroupsByMenuId(selectedMenu.id).map((group) => (
-                  <div key={group.id} className="rounded-lg bg-[#050505]/82 border border-[#d4af3718] p-2">
-                    <div className="mb-3">
-                      <div className="text-sm font-black text-[#fff8d9] md:text-base">{group.name}</div>
-
-                      <div className="text-xs text-zinc-400">
-                        {group.type === "single"
-                          ? "하나만 선택"
-                          : "여러 개 선택"}
-                        {" / "}
-                        {group.required ? "필수" : "선택"}
-                      </div>
-                    </div>
-
-                    <div className="grid gap-2">
-                      {getItemsByGroupId(group.id).map((option) => {
-                        const checked =
-                          selectedOptions[group.id]?.some(
-                            (item) => item.id === option.id,
-                          ) || false;
-
-                        return (
-                          <button
-                            key={option.id}
-                            onClick={() => toggleOption(group, option)}
-                            disabled={option.is_soldout}
-                            className={`rounded-lg p-2 text-left text-xs font-black md:text-sm ${
-                              option.is_soldout
-                                ? "bg-zinc-800 text-zinc-500"
-                                : checked
-                                  ? "bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] text-black shadow-[0_0_22px_rgba(212,175,55,.28)]"
-                                  : "bg-[#050505] text-white"
-                            }`}
-                          >
-                            <div className="flex justify-between gap-2">
-                              <span>
-                                {option.name}
-                                {option.is_soldout && " (품절)"}
-                              </span>
-
-                              <span>
-                                {option.price > 0
-                                  ? `+${option.price.toLocaleString()}원`
-                                  : "무료"}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-3 rounded-lg border border-[#d4af3718] bg-[#050505] p-3">
-                <div className="text-sm text-zinc-400">합계</div>
-
-                <div className="text-lg font-black text-[#f4d56d] md:text-xl">
-                  {selectedMenuTotal.toLocaleString()}원
-                </div>
-              </div>
-
-              <button
-                onClick={addCartWithOptions}
-                className="mt-3 w-full rounded-lg bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] p-3 text-sm font-black text-black"
-              >
-                장바구니 담기
-              </button>
             </div>
           </div>
         )}
