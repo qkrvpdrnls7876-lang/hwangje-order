@@ -994,6 +994,9 @@ export default function Home() {
   const getItemsByGroupId = (groupId: number) =>
     items.filter((item) => item.group_id === groupId);
 
+  // 황제수정: 손님앱 메뉴 카드용 이미지. 메뉴 이미지 컬럼이 아직 없어서 기본 로고/우주 감성 썸네일로 안전 처리
+  const getMenuImageSrc = (_menu: Menu) => "/images/penguin-logo.png";
+
   const openOptionModal = (menu: Menu) => {
     if (menu.is_soldout) return alert("품절된 메뉴입니다.");
 
@@ -1398,7 +1401,7 @@ export default function Home() {
   const storeStatus = getStoreStatus(currentTime);
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#050505] bg-[radial-gradient(circle_at_top,#3b2f0b_0%,#050505_34%)] pb-24 text-[#f7e7b0] md:pb-0">
+    <main className="relative min-h-screen overflow-hidden bg-[#050505] bg-[radial-gradient(circle_at_top,#3b2f0b_0%,#050505_34%)] pb-28 text-[#f7e7b0] md:pb-0">
       <div
         className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: "url('/images/space-bg.png')" }}
@@ -1406,12 +1409,12 @@ export default function Home() {
 
       <div className="fixed inset-0 z-0 bg-[#050505]/82" />
 
-      <div className="relative z-10 mx-auto w-full max-w-[560px] px-4 py-4 md:max-w-6xl md:p-6 /* 황제수정: 모바일 화면 폭/여백 확대 */">
-        <section className="mb-4 flex min-h-[30vh] flex-col items-center justify-center rounded-[28px] /* 황제수정: 첫 화면을 더 크게 */ border border-[#d4af3735] bg-gradient-to-b from-[#151007]/95 via-black/78 to-[#050505]/95 px-4 py-5 text-center shadow-[0_0_42px_rgba(212,175,55,.16)] backdrop-blur-xl md:mb-8 md:min-h-[54vh] md:rounded-3xl md:py-6">
+      <div className="relative z-10 mx-auto w-full max-w-[640px] px-0 py-0 md:max-w-6xl md:p-6 /* 황제수정: 손님앱은 배민처럼 모바일 폭을 꽉 쓰고, PC만 여백 적용 */">
+        <section className="mx-3 mt-3 mb-4 flex flex-col items-center justify-center rounded-[28px] border border-[#d4af3735] bg-gradient-to-b from-[#151007]/95 via-black/84 to-[#050505]/96 px-4 py-5 text-center shadow-[0_0_42px_rgba(212,175,55,.16)] backdrop-blur-xl md:mb-8 md:min-h-[42vh] md:rounded-3xl md:py-6 /* 황제수정: 손님 첫 화면을 앱 홈처럼 압축. 메뉴가 바로 보이게 변경 */">
           <img
             src="/images/penguin-logo.png"
             alt="황제떡볶이"
-            className="w-[170px] object-contain /* 황제수정: 로고 확대 */ drop-shadow-[0_0_42px_rgba(212,175,55,.75)] md:w-[700px]"
+            className="w-[138px] object-contain drop-shadow-[0_0_42px_rgba(212,175,55,.75)] md:w-[520px] /* 황제수정: 모바일 로고 과대 노출 축소 */"
           />
 
           <div className="mt-3 rounded-full border border-[#d4af3748] bg-[#120e05]/85 px-4 py-1.5 text-sm font-black tracking-[-0.03em] text-[#f4d56d] md:text-sm">
@@ -1573,7 +1576,7 @@ export default function Home() {
           )}
         </section>
 
-        <div className="sticky top-0 z-30 mb-4 -mx-4 border-y border-[#d4af3724] bg-[#050505]/95 px-4 py-3 shadow-xl shadow-black/60 backdrop-blur md:top-0 md:mx-0 md:rounded-xl md:border md:px-3">
+        <div className="sticky top-0 z-30 mb-4 border-y border-[#d4af3724] bg-[#050505]/96 px-3 py-3 shadow-xl shadow-black/60 backdrop-blur md:top-0 md:mx-0 md:rounded-xl md:border md:px-3 /* 황제수정: 배민 카테고리 칩처럼 상단 고정 */">
           <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {Object.keys(groupedMenu).map((category) => (
               <button
@@ -1598,7 +1601,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3 /* 황제수정: 태블릿/큰폰에서도 PC 3단 분할 방지 */">
+        <div className="grid gap-4 px-3 lg:grid-cols-3 lg:px-0 /* 황제수정: 손님 메뉴 리스트는 모바일에서 좌우 12px만 사용 */">
           <div className="lg:col-span-2">
             <div className="space-y-5">
               {Object.entries(groupedMenu).map(([category, menuItems]) => (
@@ -1613,48 +1616,67 @@ export default function Home() {
                     {category}
                   </h2>
 
-                  <div className="grid gap-3">
-                    {menuItems.map((menu) => (
-                      <div
+                  <div className="grid gap-0 overflow-hidden rounded-[26px] border border-[#d4af3724] bg-[#090909]/88 shadow-[0_0_26px_rgba(212,175,55,.08)] /* 황제수정: 배민 메뉴 리스트처럼 한 덩어리 섹션화 */">
+                    {menuItems.map((menu, index) => (
+                      <button
                         key={menu.id}
-                        className={`rounded-[24px] border border-[#d4af3728] bg-gradient-to-b from-[#111111]/95 to-[#050505]/95 p-4 /* 황제수정: 메뉴 카드 확대 */ shadow-[0_0_16px_rgba(212,175,55,.07)] backdrop-blur-xl transition-all duration-300 hover:border-[#d4af37] hover:shadow-[0_0_30px_rgba(212,175,55,.22)] ${
-                          menu.is_soldout ? "opacity-50" : ""
-                        }`}
+                        type="button"
+                        onClick={() => openOptionModal(menu)}
+                        disabled={menu.is_soldout}
+                        className={`group relative flex w-full items-stretch gap-3 border-[#ffffff10] px-4 py-5 text-left transition active:scale-[0.99] ${
+                          index > 0 ? "border-t" : ""
+                        } ${
+                          menu.is_soldout
+                            ? "opacity-45"
+                            : "hover:bg-[#d4af37]/7 active:bg-[#d4af37]/10"
+                        } /* 황제수정: 메뉴명/설명/가격/이미지 배민식 행 레이아웃 */`}
                       >
-                        <div className="flex justify-between gap-3">
-                          <div>
-                            <h3 className="text-xl font-black tracking-[-0.04em] text-[#fff8d9] md:text-xl">
-                              {menu.name}
-                            </h3>
-
-                            <div className="mt-1 text-base leading-relaxed text-zinc-400 md:text-lg">
-                              {menu.description || ""}
-                            </div>
-
-                            <div className="mt-2 text-2xl font-black text-[#f4d56d] md:text-3xl">
-                              {menu.price.toLocaleString()}원
-                            </div>
+                        <div className="min-w-0 flex-1 pr-1">
+                          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                            <span className="rounded-md bg-[#f4d56d]/12 px-2 py-1 text-[12px] font-black text-[#f4d56d]">
+                              사장님 추천
+                            </span>
+                            {menu.is_soldout && (
+                              <span className="rounded-md bg-red-600 px-2 py-1 text-[12px] font-black text-white">
+                                품절
+                              </span>
+                            )}
                           </div>
 
-                          {menu.is_soldout && (
-                            <div className="h-fit rounded-lg bg-red-600 px-2.5 py-1.5 text-sm font-black">
-                              품절
+                          <h3 className="break-keep text-[22px] font-black leading-[1.2] tracking-[-0.06em] text-[#fff8d9] md:text-2xl">
+                            {menu.name}
+                          </h3>
+
+                          {menu.description && (
+                            <p className="mt-2 line-clamp-2 break-keep text-[15px] font-semibold leading-relaxed text-zinc-400 md:text-base">
+                              {menu.description}
+                            </p>
+                          )}
+
+                          <div className="mt-3 flex items-end gap-2">
+                            <div className="text-[23px] font-black tracking-[-0.04em] text-[#f4d56d] md:text-3xl">
+                              {menu.price.toLocaleString()}원
+                            </div>
+                            <div className="pb-1 text-[13px] font-bold text-zinc-500">
+                              부터
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="relative mt-1 h-[108px] w-[108px] shrink-0 overflow-hidden rounded-[22px] border border-[#d4af372c] bg-gradient-to-br from-[#2a2109] via-[#111111] to-[#050505] shadow-[0_10px_28px_rgba(0,0,0,.38)] md:h-[128px] md:w-[128px]">
+                          <img
+                            src={getMenuImageSrc(menu)}
+                            alt={menu.name}
+                            className="h-full w-full object-contain p-3 drop-shadow-[0_0_22px_rgba(212,175,55,.42)]"
+                          />
+
+                          {!menu.is_soldout && (
+                            <div className="absolute bottom-2 right-2 grid h-11 w-11 place-items-center rounded-full border border-[#d4af3735] bg-[#fff8d9] text-3xl font-black leading-none text-black shadow-lg shadow-black/45">
+                              +
                             </div>
                           )}
                         </div>
-
-                        <button
-                          onClick={() => openOptionModal(menu)}
-                          disabled={menu.is_soldout}
-                          className={`mt-4 w-full rounded-2xl p-4 text-lg font-black md:text-xl ${
-                            menu.is_soldout
-                              ? "bg-zinc-800 text-zinc-500"
-                              : "bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] text-black shadow-[0_0_22px_rgba(212,175,55,.28)]"
-                          }`}
-                        >
-                          {menu.is_soldout ? "품절" : "선택하기"}
-                        </button>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </section>
@@ -2145,11 +2167,11 @@ export default function Home() {
         </div>
 
         {cart.length > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#d4af3748] bg-[#050505]/97 p-2.5 shadow-[0_-12px_40px_rgba(212,175,55,.16)] backdrop-blur-xl lg:hidden">
+          <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#d4af3748] bg-[#050505]/97 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_40px_rgba(212,175,55,.16)] backdrop-blur-xl lg:hidden /* 황제수정: 배민식 하단 고정 주문바 */">
             <button
               type="button"
               onClick={scrollToCart}
-              className="flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] px-4 py-3 text-black shadow-lg shadow-[#d4af37]/30"
+              className="flex w-full items-center justify-between rounded-[22px] bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] px-5 py-4 text-black shadow-lg shadow-[#d4af37]/30 active:scale-[0.99]"
             >
               <div className="text-left">
                 <div className="text-sm font-black opacity-80">
@@ -2160,7 +2182,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="rounded-lg bg-[#050505] px-3 py-2 text-base font-black text-[#f4d56d]">
+              <div className="rounded-2xl bg-[#050505] px-4 py-3 text-lg font-black text-[#f4d56d]">
                 주문하기
               </div>
             </button>
@@ -2256,7 +2278,7 @@ export default function Home() {
                   <div className="text-sm font-black uppercase tracking-[0.18em] text-[#d4af37]">
                     HWANGJE CART
                   </div>
-                  <div className="text-xl font-black text-[#fff2b8]">
+                  <div className="text-2xl font-black tracking-[-0.05em] text-[#fff2b8]">
                     장바구니
                   </div>
                 </div>
@@ -2283,7 +2305,7 @@ export default function Home() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="truncate text-base font-black text-[#fff8d9]">
+                        <div className="truncate text-lg font-black text-[#fff8d9]">
                           {item.name}
                         </div>
                         {item.options.length > 0 && (
@@ -2405,7 +2427,7 @@ export default function Home() {
                     <div className="truncate text-sm font-black uppercase tracking-[0.22em] text-[#d4af37]">
                       HWANGJE ORDER
                     </div>
-                    <div className="truncate text-base font-black text-[#fff8d9]">
+                    <div className="truncate text-lg font-black text-[#fff8d9]">
                       메뉴 상세
                     </div>
                   </div>
@@ -2535,14 +2557,14 @@ export default function Home() {
                                 </span>
 
                                 <div className="min-w-0">
-                                  <div className="truncate text-base font-black text-[#fff8d9]">
+                                  <div className="truncate text-lg font-black text-[#fff8d9]">
                                     {option.name}
                                     {option.is_soldout && " (품절)"}
                                   </div>
                                 </div>
                               </div>
 
-                              <div className="shrink-0 text-base font-black text-[#f4d56d]">
+                              <div className="shrink-0 text-lg font-black text-[#f4d56d]">
                                 {option.price > 0
                                   ? `+${option.price.toLocaleString()}원`
                                   : "무료"}
