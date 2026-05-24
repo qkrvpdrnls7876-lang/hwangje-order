@@ -11,6 +11,8 @@ type Menu = {
   description: string | null;
   category: string | null;
   is_soldout: boolean;
+  // 황제수정: 손님앱 메뉴 사진 URL. 관리자에서 업로드하면 코드 수정 없이 바로 반영
+  image_url: string | null;
   sort_order: number | null;
 };
 
@@ -59,6 +61,10 @@ type ConfirmDialog = {
 export default function AdminMenuPage() {
   const router = useRouter();
 
+  // 황제수정: 메뉴 사진은 Supabase Storage public bucket에 저장
+  const MENU_IMAGE_BUCKET = "menu-images";
+  const DEFAULT_MENU_IMAGE = "/images/penguin-logo.png";
+
   const goBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
@@ -99,6 +105,8 @@ export default function AdminMenuPage() {
 
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog>(null);
+  // 황제수정: 메뉴별 사진 업로드 중복 클릭 방지
+  const [uploadingMenuImageId, setUploadingMenuImageId] = useState<number | null>(null);
 
   const showToast = (
     message: string,
@@ -346,6 +354,7 @@ export default function AdminMenuPage() {
       price: priceNumber,
       description: form.description.trim(),
       category: form.category.trim(),
+      image_url: null,
       sort_order: getNextSortOrder(menus),
       is_soldout: false,
     });
@@ -381,6 +390,86 @@ export default function AdminMenuPage() {
       return;
     }
 
+    fetchAll();
+  };
+
+  // 황제수정: 파일명 안전 처리. 한글/공백/특수문자 때문에 Storage URL이 꼬이는 문제 방지
+  const sanitizeFileName = (fileName: string) => {
+    const extension = fileName.split(".").pop()?.toLowerCase() || "jpg";
+
+    return `menu-${Date.now()}.${extension.replace(/[^a-z0-9]/g, "") || "jpg"}`;
+  };
+
+  // 황제수정: 관리자 메뉴관리에서 메뉴 사진 업로드 → Storage 저장 → menus.image_url 업데이트
+  const uploadMenuImage = async (menuId: number, file?: File | null) => {
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      showToast("이미지 파일만 업로드할 수 있습니다.", "업로드 실패", "warning");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("사진은 5MB 이하만 업로드해주세요.", "업로드 실패", "warning");
+      return;
+    }
+
+    setUploadingMenuImageId(menuId);
+
+    const filePath = `${menuId}/${sanitizeFileName(file.name)}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(MENU_IMAGE_BUCKET)
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: true,
+      });
+
+    if (uploadError) {
+      setUploadingMenuImageId(null);
+      showToast(
+        `사진 업로드 실패: ${uploadError.message}\nSupabase Storage에 ${MENU_IMAGE_BUCKET} public bucket이 있는지 확인해주세요.`,
+        "업로드 실패",
+        "error",
+      );
+      return;
+    }
+
+    const { data } = supabase.storage
+      .from(MENU_IMAGE_BUCKET)
+      .getPublicUrl(filePath);
+
+    const imageUrl = data.publicUrl;
+
+    const { error: updateError } = await supabase
+      .from("menus")
+      .update({ image_url: imageUrl })
+      .eq("id", menuId);
+
+    setUploadingMenuImageId(null);
+
+    if (updateError) {
+      showToast("사진 URL 저장 실패: " + updateError.message, "저장 실패", "error");
+      return;
+    }
+
+    showToast("메뉴 사진을 변경했습니다.", "사진 저장 완료", "success");
+    fetchAll();
+  };
+
+  // 황제수정: 사진만 기본 펭귄으로 되돌림. 실제 파일 삭제는 운영 중 참조 꼬임 방지를 위해 생략
+  const clearMenuImage = async (menuId: number) => {
+    const { error } = await supabase
+      .from("menus")
+      .update({ image_url: null })
+      .eq("id", menuId);
+
+    if (error) {
+      showToast("사진 삭제 실패: " + error.message, "삭제 실패", "error");
+      return;
+    }
+
+    showToast("메뉴 사진을 기본 이미지로 되돌렸습니다.", "사진 초기화", "success");
     fetchAll();
   };
 
@@ -1758,6 +1847,56 @@ export default function AdminMenuPage() {
                               }`}
                             >
                               {menu.is_soldout ? "품절" : "판매중"}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 황제수정: 메뉴별 사진 업로드/미리보기. 이후 사진 변경은 코드 수정 없이 여기서 처리 */}
+                        <div className="mb-3 grid gap-3 rounded-[10px] border border-[#d4af3724] bg-[#101010] p-3 md:grid-cols-[96px_1fr]">
+                          <div className="relative h-24 w-24 overflow-hidden rounded-[16px] border border-[#d4af3730] bg-black">
+                            <img
+                              src={menu.image_url || DEFAULT_MENU_IMAGE}
+                              alt={menu.name || "메뉴 사진"}
+                              className="h-full w-full object-cover"
+                              onError={(event) => {
+                                event.currentTarget.src = DEFAULT_MENU_IMAGE;
+                              }}
+                            />
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#d4af37]">
+                              MENU PHOTO
+                            </div>
+                            <div className="mt-1 text-xs font-bold text-zinc-500">
+                              손님앱 메뉴 카드에 바로 표시됩니다. 사진 변경 후 배포 필요 없음.
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <label className="cursor-pointer rounded-[8px] border border-[#d4af37]/45 bg-[#d4af37]/12 px-3 py-2 text-[11px] font-black text-[#f4d56d] transition hover:border-[#d4af37]">
+                                {uploadingMenuImageId === menu.id ? "업로드 중..." : "사진 업로드"}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  disabled={uploadingMenuImageId === menu.id}
+                                  onChange={(event) => {
+                                    const file = event.target.files?.[0];
+                                    uploadMenuImage(menu.id, file);
+                                    event.currentTarget.value = "";
+                                  }}
+                                  className="hidden"
+                                />
+                              </label>
+
+                              {menu.image_url && (
+                                <button
+                                  type="button"
+                                  onClick={() => clearMenuImage(menu.id)}
+                                  className="rounded-[8px] border border-zinc-700 bg-[#070707] px-3 py-2 text-[11px] font-black text-zinc-300 transition hover:border-red-500/40 hover:text-red-300"
+                                >
+                                  기본이미지로
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>

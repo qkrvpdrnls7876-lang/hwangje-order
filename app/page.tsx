@@ -17,6 +17,8 @@ type Menu = {
   description: string | null;
   category: string | null;
   is_soldout: boolean;
+  // 황제수정: 관리자 메뉴관리에서 업로드한 실제 메뉴 사진 URL
+  image_url: string | null;
 };
 
 type OptionGroup = {
@@ -994,8 +996,11 @@ export default function Home() {
   const getItemsByGroupId = (groupId: number) =>
     items.filter((item) => item.group_id === groupId);
 
-  // 황제수정: 손님앱 메뉴 카드용 이미지. 메뉴 이미지 컬럼이 아직 없어서 기본 로고/우주 감성 썸네일로 안전 처리
-  const getMenuImageSrc = (_menu: Menu) => "/images/penguin-logo.png";
+  // 황제수정: 손님앱 메뉴 카드용 이미지. 관리자에서 업로드한 사진을 우선 표시하고 없으면 기본 펭귄 이미지
+  const getMenuImageSrc = (menu: Menu) =>
+    menu.image_url && menu.image_url.trim() !== ""
+      ? menu.image_url
+      : "/images/penguin-logo.png";
 
   const openOptionModal = (menu: Menu) => {
     if (menu.is_soldout) return alert("품절된 메뉴입니다.");
@@ -2446,8 +2451,9 @@ export default function Home() {
                   <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#d4af37]/10 blur-2xl" />
                   <div className="absolute -bottom-16 -left-16 h-40 w-40 rounded-full bg-[#fff1a8]/8 blur-3xl" />
 
-                  <div className="relative flex min-h-[150px] flex-col justify-between">
-                    <div>
+                  <div className="relative grid min-h-[150px] grid-cols-[1fr_112px] gap-4">
+                    <div className="flex min-w-0 flex-col justify-between">
+                      <div>
                       <div className="mb-2 inline-flex rounded-full border border-[#d4af3745] bg-black/35 px-3 py-1 text-sm font-black text-[#f4d56d]">
                         황제떡볶이 대표 메뉴
                       </div>
@@ -2463,24 +2469,37 @@ export default function Home() {
                       )}
                     </div>
 
-                    <div className="mt-5 flex items-end justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-bold text-zinc-500">
-                          기본가격
+                      <div className="mt-5 flex items-end justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-bold text-zinc-500">
+                            기본가격
+                          </div>
+                          <div className="text-2xl font-black text-[#f4d56d]">
+                            {selectedMenu.price.toLocaleString()}원
+                          </div>
                         </div>
-                        <div className="text-2xl font-black text-[#f4d56d]">
-                          {selectedMenu.price.toLocaleString()}원
-                        </div>
-                      </div>
 
-                      <div className="rounded-2xl border border-[#d4af3730] bg-black/35 px-3 py-2 text-right">
-                        <div className="text-sm font-black text-zinc-500">
-                          옵션 포함
-                        </div>
-                        <div className="text-base font-black text-[#fff2b8]">
-                          {selectedMenuTotal.toLocaleString()}원
+                        <div className="rounded-2xl border border-[#d4af3730] bg-black/35 px-3 py-2 text-right">
+                          <div className="text-sm font-black text-zinc-500">
+                            옵션 포함
+                          </div>
+                          <div className="text-base font-black text-[#fff2b8]">
+                            {selectedMenuTotal.toLocaleString()}원
+                          </div>
                         </div>
                       </div>
+                    </div>
+
+                    {/* 황제수정: 상세창에도 관리자 업로드 메뉴 사진 표시 */}
+                    <div className="relative h-28 w-28 self-center overflow-hidden rounded-[24px] border border-[#d4af3735] bg-black shadow-[0_0_24px_rgba(212,175,55,.18)]">
+                      <img
+                        src={getMenuImageSrc(selectedMenu)}
+                        alt={selectedMenu.name}
+                        className="h-full w-full object-cover"
+                        onError={(event) => {
+                          event.currentTarget.src = "/images/penguin-logo.png";
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
