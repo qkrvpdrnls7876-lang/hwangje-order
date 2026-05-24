@@ -36,8 +36,9 @@ type GroupMenuLink = {
   id: number;
   menu_id: number;
   group_id: number;
+  // 황제수정: 메뉴별 연결 옵션그룹 순서 저장값
+  sort_order: number | null;
 };
-
 
 type ToastMessage = {
   id: number;
@@ -114,9 +115,7 @@ export default function AdminMenuPage() {
     setToast(nextToast);
 
     window.setTimeout(() => {
-      setToast((current) =>
-        current?.id === nextToast.id ? null : current,
-      );
+      setToast((current) => (current?.id === nextToast.id ? null : current));
     }, 4200);
   };
 
@@ -154,6 +153,8 @@ export default function AdminMenuPage() {
     const linksResult = await supabase
       .from("menu_option_group_menus")
       .select("*")
+      // 황제수정: 메뉴별 연결 옵션그룹 순서 기준으로 조회
+      .order("sort_order", { ascending: true, nullsFirst: false })
       .order("id", { ascending: true });
 
     if (menusResult.error) {
@@ -208,6 +209,7 @@ export default function AdminMenuPage() {
         id: -100000 - index,
         group_id: group.id,
         menu_id: Number(group.menu_id),
+        sort_order: group.sort_order ?? group.id,
       }));
 
     setMenus(menuData);
@@ -243,6 +245,7 @@ export default function AdminMenuPage() {
       'drop policy if exists "allow anon select menu option group menus" on public.menu_option_group_menus;',
       'drop policy if exists "allow anon insert menu option group menus" on public.menu_option_group_menus;',
       'drop policy if exists "allow anon delete menu option group menus" on public.menu_option_group_menus;',
+      'drop policy if exists "allow anon update menu option group menus" on public.menu_option_group_menus;',
       "",
       'create policy "allow anon select menu option group menus"',
       "on public.menu_option_group_menus",
@@ -261,6 +264,13 @@ export default function AdminMenuPage() {
       "for delete",
       "to anon",
       "using (true);",
+      "",
+      'create policy "allow anon update menu option group menus"',
+      "on public.menu_option_group_menus",
+      "for update",
+      "to anon",
+      "using (true)",
+      "with check (true);",
     ].join("\n");
   };
 
@@ -268,6 +278,8 @@ export default function AdminMenuPage() {
     const nextLinks = menuIds.map((menuId) => ({
       menu_id: menuId,
       group_id: groupId,
+      // 황제수정: 같은 메뉴 안에서 연결 옵션그룹의 표시 순서를 저장
+      sort_order: getNextLinkSortOrder(menuId),
     }));
 
     const { error } = await supabase
@@ -496,7 +508,11 @@ export default function AdminMenuPage() {
           .eq("id", id);
 
         if (error) {
-          showToast("옵션그룹 삭제 실패: " + error.message, "삭제 실패", "error");
+          showToast(
+            "옵션그룹 삭제 실패: " + error.message,
+            "삭제 실패",
+            "error",
+          );
           return;
         }
 
@@ -611,7 +627,9 @@ export default function AdminMenuPage() {
       group_id: Number(itemForm.group_id),
       name: itemForm.name.trim(),
       price: priceNumber,
-      sort_order: getNextSortOrder(getItemsByGroupId(Number(itemForm.group_id))),
+      sort_order: getNextSortOrder(
+        getItemsByGroupId(Number(itemForm.group_id)),
+      ),
       is_soldout: false,
     });
 
@@ -676,7 +694,11 @@ export default function AdminMenuPage() {
           .eq("id", id);
 
         if (error) {
-          showToast("옵션항목 삭제 실패: " + error.message, "삭제 실패", "error");
+          showToast(
+            "옵션항목 삭제 실패: " + error.message,
+            "삭제 실패",
+            "error",
+          );
           return;
         }
 
@@ -711,14 +733,19 @@ export default function AdminMenuPage() {
   };
 
   const getGroupsByMenuId = (menuId: number) => {
-    // 황제수정: 메뉴별 연결 옵션그룹도 sort_order 기준으로 안정 정렬
+    // 황제수정: 메뉴별 연결 옵션그룹 순서는 menu_option_group_menus.sort_order 기준
     return groups
       .filter((group) =>
         links.some(
           (link) => link.group_id === group.id && link.menu_id === menuId,
         ),
       )
-      .sort((a, b) => getSortOrder(a) - getSortOrder(b));
+      .sort((a, b) => {
+        const aLink = getLinkByMenuAndGroup(menuId, a.id);
+        const bLink = getLinkByMenuAndGroup(menuId, b.id);
+
+        return getLinkSortOrder(aLink, a) - getLinkSortOrder(bLink, b);
+      });
   };
 
   const getItemsByGroupId = (groupId: number) => {
@@ -741,7 +768,36 @@ export default function AdminMenuPage() {
     return Number(item.sort_order ?? item.id);
   };
 
-  const getNextSortOrder = (list: { id: number; sort_order: number | null }[]) => {
+  const getLinkByMenuAndGroup = (menuId: number, groupId: number) => {
+    return links.find(
+      (link) => link.menu_id === menuId && link.group_id === groupId,
+    );
+  };
+
+  const getLinkSortOrder = (
+    link: GroupMenuLink | undefined,
+    fallbackGroup?: OptionGroup,
+  ) => {
+    return Number(
+      link?.sort_order ??
+        fallbackGroup?.sort_order ??
+        fallbackGroup?.id ??
+        link?.id ??
+        0,
+    );
+  };
+
+  const getNextLinkSortOrder = (menuId: number) => {
+    const menuLinks = links.filter((link) => link.menu_id === menuId);
+
+    if (menuLinks.length === 0) return 10;
+
+    return Math.max(...menuLinks.map((link) => getLinkSortOrder(link))) + 10;
+  };
+
+  const getNextSortOrder = (
+    list: { id: number; sort_order: number | null }[],
+  ) => {
     if (list.length === 0) return 10;
     return Math.max(...list.map((item) => getSortOrder(item))) + 10;
   };
@@ -771,7 +827,11 @@ export default function AdminMenuPage() {
       .eq("id", params.target.id);
 
     if (second.error) {
-      showToast("순서 변경 실패: " + second.error.message, "변경 실패", "error");
+      showToast(
+        "순서 변경 실패: " + second.error.message,
+        "변경 실패",
+        "error",
+      );
       return;
     }
 
@@ -812,28 +872,84 @@ export default function AdminMenuPage() {
     groupId: number,
     direction: "up" | "down",
   ) => {
-    // 황제수정: 메뉴 목록 > 연결된 옵션 안에서도 연결 옵션그룹 위/아래 정렬 가능
-    // 실제 정렬값은 menu_option_groups.sort_order를 바꾸므로 고객 주문 화면의 옵션그룹 순서도 같이 반영됨.
+    // 황제수정: 전역 옵션그룹 순서가 아니라 메뉴별 연결 테이블 순서를 바꿈
+    // 그래서 A메뉴 옵션 순서를 바꿔도 B메뉴 옵션 순서가 같이 꼬이지 않음.
     const menuGroups = getGroupsByMenuId(menuId);
     const index = menuGroups.findIndex((group) => group.id === groupId);
     const targetIndex = direction === "up" ? index - 1 : index + 1;
 
-    if (index < 0 || targetIndex < 0 || targetIndex >= menuGroups.length) return;
+    if (index < 0 || targetIndex < 0 || targetIndex >= menuGroups.length)
+      return;
 
-    await swapSortOrder({
-      table: "menu_option_groups",
-      current: menuGroups[index],
-      target: menuGroups[targetIndex],
-      successMessage: "연결된 옵션그룹 순서를 변경했습니다.",
-    });
+    const currentGroup = menuGroups[index];
+    const targetGroup = menuGroups[targetIndex];
+    const currentLink = getLinkByMenuAndGroup(menuId, currentGroup.id);
+    const targetLink = getLinkByMenuAndGroup(menuId, targetGroup.id);
+
+    if (
+      !currentLink ||
+      !targetLink ||
+      currentLink.id < 0 ||
+      targetLink.id < 0
+    ) {
+      showToast(
+        "이 연결은 예전 방식으로 붙어있어서 메뉴별 순서 저장이 안 됩니다.\n공용 옵션그룹 연결을 다시 저장하거나 DB sort_order 컬럼을 추가해주세요.",
+        "순서 변경 불가",
+        "warning",
+      );
+      return;
+    }
+
+    const currentSort = getLinkSortOrder(currentLink, currentGroup);
+    const targetSort = getLinkSortOrder(targetLink, targetGroup);
+
+    const first = await supabase
+      .from("menu_option_group_menus")
+      .update({ sort_order: targetSort })
+      .eq("id", currentLink.id);
+
+    if (first.error) {
+      showToast(
+        "연결 옵션그룹 순서 변경 실패: " + first.error.message,
+        "변경 실패",
+        "error",
+      );
+      return;
+    }
+
+    const second = await supabase
+      .from("menu_option_group_menus")
+      .update({ sort_order: currentSort })
+      .eq("id", targetLink.id);
+
+    if (second.error) {
+      showToast(
+        "연결 옵션그룹 순서 변경 실패: " + second.error.message,
+        "변경 실패",
+        "error",
+      );
+      return;
+    }
+
+    showToast(
+      "이 메뉴의 연결 옵션그룹 순서를 변경했습니다.",
+      "순서 변경 완료",
+      "success",
+    );
+    fetchAll();
   };
 
-  const moveItem = async (groupId: number, itemId: number, direction: "up" | "down") => {
+  const moveItem = async (
+    groupId: number,
+    itemId: number,
+    direction: "up" | "down",
+  ) => {
     const groupItems = getItemsByGroupId(groupId);
     const index = groupItems.findIndex((item) => item.id === itemId);
     const targetIndex = direction === "up" ? index - 1 : index + 1;
 
-    if (index < 0 || targetIndex < 0 || targetIndex >= groupItems.length) return;
+    if (index < 0 || targetIndex < 0 || targetIndex >= groupItems.length)
+      return;
 
     await swapSortOrder({
       table: "menu_option_items",
@@ -856,8 +972,8 @@ export default function AdminMenuPage() {
     "w-full rounded-[10px] border border-zinc-800 bg-[#070707] px-3 py-3 text-sm font-bold text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-[#d4af37]/70";
   const labelClass =
     "mb-2 block text-[11px] font-black uppercase tracking-[0.16em] text-zinc-500";
-const compactInputClass =
-  "w-full rounded-[8px] border border-zinc-800 bg-[#050505] px-2.5 py-2 text-xs font-bold text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-[#d4af37]/70";
+  const compactInputClass =
+    "w-full rounded-[8px] border border-zinc-800 bg-[#050505] px-2.5 py-2 text-xs font-bold text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-[#d4af37]/70";
   const hwangjeScrollClass =
     "max-h-[650px] overflow-y-auto pr-2 [scrollbar-color:#d4af37_#070707] [scrollbar-width:thin]";
 
@@ -1325,7 +1441,9 @@ const compactInputClass =
                   </div>
                 )}
 
-                <div className={`${hwangjeScrollClass} hwangje-scroll space-y-3`}>
+                <div
+                  className={`${hwangjeScrollClass} hwangje-scroll space-y-3`}
+                >
                   {groups.map((group, groupIndex) => {
                     const groupMenusOpen = openGroupMenuIds.includes(group.id);
                     const groupItemsOpen = openGroupItemIds.includes(group.id);
@@ -1444,7 +1562,10 @@ const compactInputClass =
                                     key={menu.id}
                                     type="button"
                                     onClick={() =>
-                                      toggleGroupMenuConnection(group.id, menu.id)
+                                      toggleGroupMenuConnection(
+                                        group.id,
+                                        menu.id,
+                                      )
                                     }
                                     className={`rounded-[8px] border px-2.5 py-2 text-left text-xs font-black transition ${
                                       checked
@@ -1472,21 +1593,31 @@ const compactInputClass =
                                   <input
                                     defaultValue={item.name}
                                     onBlur={(e) =>
-                                      updateItem(item.id, "name", e.target.value)
+                                      updateItem(
+                                        item.id,
+                                        "name",
+                                        e.target.value,
+                                      )
                                     }
                                     className={compactInputClass}
                                   />
                                   <input
                                     defaultValue={item.price}
                                     onBlur={(e) =>
-                                      updateItem(item.id, "price", e.target.value)
+                                      updateItem(
+                                        item.id,
+                                        "price",
+                                        e.target.value,
+                                      )
                                     }
                                     className={`${compactInputClass} mt-2 text-[#d4af37]`}
                                   />
                                   <div className="mt-2 grid grid-cols-2 gap-2">
                                     <button
                                       type="button"
-                                      onClick={() => moveItem(group.id, item.id, "up")}
+                                      onClick={() =>
+                                        moveItem(group.id, item.id, "up")
+                                      }
                                       disabled={itemIndex === 0}
                                       className="rounded-[8px] border border-[#d4af37]/25 bg-[#101010] px-2.5 py-2 text-[11px] font-black text-[#d4af37] transition hover:border-[#d4af37] disabled:border-zinc-800 disabled:text-zinc-600"
                                     >
@@ -1494,8 +1625,12 @@ const compactInputClass =
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => moveItem(group.id, item.id, "down")}
-                                      disabled={itemIndex === groupItems.length - 1}
+                                      onClick={() =>
+                                        moveItem(group.id, item.id, "down")
+                                      }
+                                      disabled={
+                                        itemIndex === groupItems.length - 1
+                                      }
                                       className="rounded-[8px] border border-[#d4af37]/25 bg-[#101010] px-2.5 py-2 text-[11px] font-black text-[#d4af37] transition hover:border-[#d4af37] disabled:border-zinc-800 disabled:text-zinc-600"
                                     >
                                       ↓ 아래
@@ -1504,7 +1639,10 @@ const compactInputClass =
                                   <div className="mt-2 grid grid-cols-2 gap-2">
                                     <button
                                       onClick={() =>
-                                        toggleItemSoldout(item.id, item.is_soldout)
+                                        toggleItemSoldout(
+                                          item.id,
+                                          item.is_soldout,
+                                        )
                                       }
                                       className={`rounded-[8px] border px-2.5 py-2 text-[11px] font-black ${
                                         item.is_soldout
@@ -1512,7 +1650,9 @@ const compactInputClass =
                                           : "border-red-500/40 bg-red-950/40 text-red-300"
                                       }`}
                                     >
-                                      {item.is_soldout ? "판매중 변경" : "품절 처리"}
+                                      {item.is_soldout
+                                        ? "판매중 변경"
+                                        : "품절 처리"}
                                     </button>
                                     <button
                                       onClick={() => deleteItem(item.id)}
@@ -1565,7 +1705,9 @@ const compactInputClass =
                   </div>
                 )}
 
-                <div className={`${hwangjeScrollClass} hwangje-scroll space-y-2`}>
+                <div
+                  className={`${hwangjeScrollClass} hwangje-scroll space-y-2`}
+                >
                   {menus.map((menu, menuIndex) => {
                     const menuGroups = getGroupsByMenuId(menu.id);
                     const optionOpen = openMenuOptionIds.includes(menu.id);
@@ -1705,7 +1847,15 @@ const compactInputClass =
                                           {group.type === "single"
                                             ? "하나만 선택"
                                             : "여러 개 선택"}{" "}
-                                          / {group.required ? "필수" : "선택"} / SORT {getSortOrder(group)}
+                                          / {group.required ? "필수" : "선택"} /
+                                          SORT{" "}
+                                          {getLinkSortOrder(
+                                            getLinkByMenuAndGroup(
+                                              menu.id,
+                                              group.id,
+                                            ),
+                                            group,
+                                          )}
                                         </div>
                                       </div>
 
@@ -1719,7 +1869,11 @@ const compactInputClass =
                                       <button
                                         type="button"
                                         onClick={() =>
-                                          moveMenuLinkedGroup(menu.id, group.id, "up")
+                                          moveMenuLinkedGroup(
+                                            menu.id,
+                                            group.id,
+                                            "up",
+                                          )
                                         }
                                         disabled={groupIndex === 0}
                                         className="rounded-[8px] border border-[#d4af37]/25 bg-[#101010] px-2.5 py-2 text-[11px] font-black text-[#d4af37] transition hover:border-[#d4af37] disabled:border-zinc-800 disabled:text-zinc-600"
@@ -1729,9 +1883,15 @@ const compactInputClass =
                                       <button
                                         type="button"
                                         onClick={() =>
-                                          moveMenuLinkedGroup(menu.id, group.id, "down")
+                                          moveMenuLinkedGroup(
+                                            menu.id,
+                                            group.id,
+                                            "down",
+                                          )
                                         }
-                                        disabled={groupIndex === menuGroups.length - 1}
+                                        disabled={
+                                          groupIndex === menuGroups.length - 1
+                                        }
                                         className="rounded-[8px] border border-[#d4af37]/25 bg-[#101010] px-2.5 py-2 text-[11px] font-black text-[#d4af37] transition hover:border-[#d4af37] disabled:border-zinc-800 disabled:text-zinc-600"
                                       >
                                         ↓ 아래로
@@ -1828,7 +1988,6 @@ const compactInputClass =
           </div>
         </div>
       )}
-
     </main>
   );
 }
