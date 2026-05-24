@@ -802,67 +802,82 @@ export default function AdminMenuPage() {
     return Math.max(...list.map((item) => getSortOrder(item))) + 10;
   };
 
-  const swapSortOrder = async (params: {
-    table: "menus" | "menu_option_groups" | "menu_option_items";
-    current: { id: number; sort_order: number | null };
-    target: { id: number; sort_order: number | null };
+  const updateSequentialSortOrders = async (params: {
+    table:
+      | "menus"
+      | "menu_option_groups"
+      | "menu_option_items"
+      | "menu_option_group_menus";
+    orderedItems: { id: number }[];
     successMessage: string;
   }) => {
-    const currentSort = getSortOrder(params.current);
-    const targetSort = getSortOrder(params.target);
+    // 황제수정: 단순 swap 대신 전체 순서를 10,20,30...으로 재정렬
+    // 기존 데이터에 sort_order 중복/null이 있어도 위/아래 버튼이 확실히 먹게 처리
+    for (let index = 0; index < params.orderedItems.length; index += 1) {
+      const item = params.orderedItems[index];
+      const nextSortOrder = (index + 1) * 10;
 
-    const first = await supabase
-      .from(params.table)
-      .update({ sort_order: targetSort })
-      .eq("id", params.current.id);
+      const { error } = await supabase
+        .from(params.table)
+        .update({ sort_order: nextSortOrder })
+        .eq("id", item.id);
 
-    if (first.error) {
-      showToast("순서 변경 실패: " + first.error.message, "변경 실패", "error");
-      return;
-    }
-
-    const second = await supabase
-      .from(params.table)
-      .update({ sort_order: currentSort })
-      .eq("id", params.target.id);
-
-    if (second.error) {
-      showToast(
-        "순서 변경 실패: " + second.error.message,
-        "변경 실패",
-        "error",
-      );
-      return;
+      if (error) {
+        showToast(
+          "순서 변경 실패: " + error.message,
+          "변경 실패",
+          "error",
+        );
+        return false;
+      }
     }
 
     showToast(params.successMessage, "순서 변경 완료", "success");
     fetchAll();
+    return true;
   };
 
   const moveMenu = async (menuId: number, direction: "up" | "down") => {
-    const index = menus.findIndex((menu) => menu.id === menuId);
+    const orderedMenus = [...menus].sort(
+      (a, b) => getSortOrder(a) - getSortOrder(b) || a.id - b.id,
+    );
+    const index = orderedMenus.findIndex((menu) => menu.id === menuId);
     const targetIndex = direction === "up" ? index - 1 : index + 1;
 
-    if (index < 0 || targetIndex < 0 || targetIndex >= menus.length) return;
+    if (index < 0 || targetIndex < 0 || targetIndex >= orderedMenus.length) return;
 
-    await swapSortOrder({
+    const nextMenus = [...orderedMenus];
+    [nextMenus[index], nextMenus[targetIndex]] = [
+      nextMenus[targetIndex],
+      nextMenus[index],
+    ];
+
+    await updateSequentialSortOrders({
       table: "menus",
-      current: menus[index],
-      target: menus[targetIndex],
+      orderedItems: nextMenus,
       successMessage: "메뉴 순서를 변경했습니다.",
     });
   };
 
   const moveGroup = async (groupId: number, direction: "up" | "down") => {
-    const index = groups.findIndex((group) => group.id === groupId);
+    const orderedGroups = [...groups].sort(
+      (a, b) => getSortOrder(a) - getSortOrder(b) || a.id - b.id,
+    );
+    const index = orderedGroups.findIndex((group) => group.id === groupId);
     const targetIndex = direction === "up" ? index - 1 : index + 1;
 
-    if (index < 0 || targetIndex < 0 || targetIndex >= groups.length) return;
+    if (index < 0 || targetIndex < 0 || targetIndex >= orderedGroups.length)
+      return;
 
-    await swapSortOrder({
+    const nextGroups = [...orderedGroups];
+    [nextGroups[index], nextGroups[targetIndex]] = [
+      nextGroups[targetIndex],
+      nextGroups[index],
+    ];
+
+    await updateSequentialSortOrders({
       table: "menu_option_groups",
-      current: groups[index],
-      target: groups[targetIndex],
+      orderedItems: nextGroups,
       successMessage: "옵션그룹 순서를 변경했습니다.",
     });
   };
@@ -872,8 +887,8 @@ export default function AdminMenuPage() {
     groupId: number,
     direction: "up" | "down",
   ) => {
-    // 황제수정: 전역 옵션그룹 순서가 아니라 메뉴별 연결 테이블 순서를 바꿈
-    // 그래서 A메뉴 옵션 순서를 바꿔도 B메뉴 옵션 순서가 같이 꼬이지 않음.
+    // 황제수정: 메뉴별 연결 옵션그룹도 전체 순서를 10,20,30...으로 재정렬
+    // 기존 sort_order 중복/null 때문에 특정 항목만 안 움직이는 문제 방지
     const menuGroups = getGroupsByMenuId(menuId);
     const index = menuGroups.findIndex((group) => group.id === groupId);
     const targetIndex = direction === "up" ? index - 1 : index + 1;
@@ -881,10 +896,8 @@ export default function AdminMenuPage() {
     if (index < 0 || targetIndex < 0 || targetIndex >= menuGroups.length)
       return;
 
-    const currentGroup = menuGroups[index];
-    const targetGroup = menuGroups[targetIndex];
-    const currentLink = getLinkByMenuAndGroup(menuId, currentGroup.id);
-    const targetLink = getLinkByMenuAndGroup(menuId, targetGroup.id);
+    const currentLink = getLinkByMenuAndGroup(menuId, menuGroups[index].id);
+    const targetLink = getLinkByMenuAndGroup(menuId, menuGroups[targetIndex].id);
 
     if (
       !currentLink ||
@@ -893,50 +906,37 @@ export default function AdminMenuPage() {
       targetLink.id < 0
     ) {
       showToast(
-        "이 연결은 예전 방식으로 붙어있어서 메뉴별 순서 저장이 안 됩니다.\n공용 옵션그룹 연결을 다시 저장하거나 DB sort_order 컬럼을 추가해주세요.",
+        "이 연결은 예전 방식으로 붙어있어서 메뉴별 순서 저장이 안 됩니다.\n아래 SQL로 예전 연결을 실제 연결행으로 보정해주세요.",
         "순서 변경 불가",
         "warning",
       );
       return;
     }
 
-    const currentSort = getLinkSortOrder(currentLink, currentGroup);
-    const targetSort = getLinkSortOrder(targetLink, targetGroup);
+    const nextGroups = [...menuGroups];
+    [nextGroups[index], nextGroups[targetIndex]] = [
+      nextGroups[targetIndex],
+      nextGroups[index],
+    ];
 
-    const first = await supabase
-      .from("menu_option_group_menus")
-      .update({ sort_order: targetSort })
-      .eq("id", currentLink.id);
+    const nextLinks = nextGroups
+      .map((group) => getLinkByMenuAndGroup(menuId, group.id))
+      .filter((link): link is GroupMenuLink => Boolean(link) && Number(link?.id) > 0);
 
-    if (first.error) {
+    if (nextLinks.length !== nextGroups.length) {
       showToast(
-        "연결 옵션그룹 순서 변경 실패: " + first.error.message,
-        "변경 실패",
-        "error",
+        "일부 연결이 예전 방식으로 잡혀있어서 순서를 저장할 수 없습니다.\nSQL 보정 후 다시 시도해주세요.",
+        "순서 변경 불가",
+        "warning",
       );
       return;
     }
 
-    const second = await supabase
-      .from("menu_option_group_menus")
-      .update({ sort_order: currentSort })
-      .eq("id", targetLink.id);
-
-    if (second.error) {
-      showToast(
-        "연결 옵션그룹 순서 변경 실패: " + second.error.message,
-        "변경 실패",
-        "error",
-      );
-      return;
-    }
-
-    showToast(
-      "이 메뉴의 연결 옵션그룹 순서를 변경했습니다.",
-      "순서 변경 완료",
-      "success",
-    );
-    fetchAll();
+    await updateSequentialSortOrders({
+      table: "menu_option_group_menus",
+      orderedItems: nextLinks,
+      successMessage: "이 메뉴의 연결 옵션그룹 순서를 변경했습니다.",
+    });
   };
 
   const moveItem = async (
@@ -944,6 +944,7 @@ export default function AdminMenuPage() {
     itemId: number,
     direction: "up" | "down",
   ) => {
+    // 황제수정: 옵션항목도 전체 순서를 재정렬해서 sort_order 중복/null 문제 해결
     const groupItems = getItemsByGroupId(groupId);
     const index = groupItems.findIndex((item) => item.id === itemId);
     const targetIndex = direction === "up" ? index - 1 : index + 1;
@@ -951,10 +952,15 @@ export default function AdminMenuPage() {
     if (index < 0 || targetIndex < 0 || targetIndex >= groupItems.length)
       return;
 
-    await swapSortOrder({
+    const nextItems = [...groupItems];
+    [nextItems[index], nextItems[targetIndex]] = [
+      nextItems[targetIndex],
+      nextItems[index],
+    ];
+
+    await updateSequentialSortOrders({
       table: "menu_option_items",
-      current: groupItems[index],
-      target: groupItems[targetIndex],
+      orderedItems: nextItems,
       successMessage: "옵션항목 순서를 변경했습니다.",
     });
   };
