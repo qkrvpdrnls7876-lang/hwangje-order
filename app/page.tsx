@@ -1571,7 +1571,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
               <button
                 type="button"
                 onClick={scrollToCart}
-                className="shrink-0 rounded-full bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] px-4 py-3 text-sm font-black text-black shadow-lg shadow-[#d4af37]/20 md:hidden"
+                className="shrink-0 rounded-full bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] px-4 py-3 text-sm font-black text-black shadow-lg shadow-[#d4af37]/20 lg:hidden"
               >
                 🛒 장바구니
               </button>
@@ -1579,8 +1579,8 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="md:col-span-2">
+        <div className="grid gap-4 lg:grid-cols-3 /* 황제수정: 태블릿/큰폰에서도 PC 3단 분할 방지 */">
+          <div className="lg:col-span-2">
             <div className="space-y-5">
               {Object.entries(groupedMenu).map(([category, menuItems]) => (
                 <section
@@ -1643,8 +1643,8 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
             </div>
           </div>
 
-          <aside className={`${showOrderForm ? "block" : "hidden"} md:block`}>
-            <div ref={cartRef} className="md:sticky md:top-3 rounded-2xl border border-[#d4af3735] bg-gradient-to-b from-[#111111]/95 to-[#050505]/95 p-4 shadow-2xl shadow-black/70 backdrop-blur">
+          <aside className={`${showOrderForm ? "block" : "hidden"} lg:block /* 황제수정: 모바일/태블릿에서는 오른쪽 장바구니 고정 노출 방지 */`}>
+            <div ref={cartRef} className="lg:sticky lg:top-3 rounded-2xl border border-[#d4af3735] bg-gradient-to-b from-[#111111]/95 to-[#050505]/95 p-4 shadow-2xl shadow-black/70 backdrop-blur">
               <h2 className="mb-3 text-xl font-black text-[#f4d56d] md:text-2xl">
                 장바구니
               </h2>
@@ -2118,7 +2118,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
 
 
         {cart.length > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#d4af3748] bg-[#050505]/97 p-2.5 shadow-[0_-12px_40px_rgba(212,175,55,.16)] backdrop-blur-xl md:hidden">
+          <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#d4af3748] bg-[#050505]/97 p-2.5 shadow-[0_-12px_40px_rgba(212,175,55,.16)] backdrop-blur-xl lg:hidden">
             <button
               type="button"
               onClick={scrollToCart}
@@ -2222,7 +2222,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
         )}
 
         {mobileCartOpen && (
-          <div className="fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm md:hidden">
+          <div className="fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm lg:hidden">
             <div className="absolute bottom-0 left-0 right-0 max-h-[86vh] overflow-y-auto rounded-t-[28px] border-t border-[#d4af3748] bg-[#070707] p-3 shadow-[0_-18px_60px_rgba(212,175,55,.16)]">
               <div className="mb-3 flex items-center justify-between">
                 <div>
