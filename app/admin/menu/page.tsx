@@ -711,11 +711,14 @@ export default function AdminMenuPage() {
   };
 
   const getGroupsByMenuId = (menuId: number) => {
-    return groups.filter((group) =>
-      links.some(
-        (link) => link.group_id === group.id && link.menu_id === menuId,
-      ),
-    );
+    // 황제수정: 메뉴별 연결 옵션그룹도 sort_order 기준으로 안정 정렬
+    return groups
+      .filter((group) =>
+        links.some(
+          (link) => link.group_id === group.id && link.menu_id === menuId,
+        ),
+      )
+      .sort((a, b) => getSortOrder(a) - getSortOrder(b));
   };
 
   const getItemsByGroupId = (groupId: number) => {
@@ -801,6 +804,27 @@ export default function AdminMenuPage() {
       current: groups[index],
       target: groups[targetIndex],
       successMessage: "옵션그룹 순서를 변경했습니다.",
+    });
+  };
+
+  const moveMenuLinkedGroup = async (
+    menuId: number,
+    groupId: number,
+    direction: "up" | "down",
+  ) => {
+    // 황제수정: 메뉴 목록 > 연결된 옵션 안에서도 연결 옵션그룹 위/아래 정렬 가능
+    // 실제 정렬값은 menu_option_groups.sort_order를 바꾸므로 고객 주문 화면의 옵션그룹 순서도 같이 반영됨.
+    const menuGroups = getGroupsByMenuId(menuId);
+    const index = menuGroups.findIndex((group) => group.id === groupId);
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+
+    if (index < 0 || targetIndex < 0 || targetIndex >= menuGroups.length) return;
+
+    await swapSortOrder({
+      table: "menu_option_groups",
+      current: menuGroups[index],
+      target: menuGroups[targetIndex],
+      successMessage: "연결된 옵션그룹 순서를 변경했습니다.",
     });
   };
 
@@ -1667,7 +1691,7 @@ const compactInputClass =
                           {optionOpen && (
                             <div className="border-t border-zinc-800 p-3">
                               <div className="space-y-2">
-                                {menuGroups.map((group) => (
+                                {menuGroups.map((group, groupIndex) => (
                                   <div
                                     key={group.id}
                                     className="rounded-[8px] border border-zinc-800 bg-[#070707] p-2.5"
@@ -1681,13 +1705,37 @@ const compactInputClass =
                                           {group.type === "single"
                                             ? "하나만 선택"
                                             : "여러 개 선택"}{" "}
-                                          / {group.required ? "필수" : "선택"}
+                                          / {group.required ? "필수" : "선택"} / SORT {getSortOrder(group)}
                                         </div>
                                       </div>
 
                                       <div className="shrink-0 text-xs font-black text-[#d4af37]">
                                         {getItemsByGroupId(group.id).length}개
                                       </div>
+                                    </div>
+
+                                    {/* 황제수정: 메뉴 목록의 연결된 옵션그룹도 위/아래 순서 변경 */}
+                                    <div className="mt-2 grid grid-cols-2 gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          moveMenuLinkedGroup(menu.id, group.id, "up")
+                                        }
+                                        disabled={groupIndex === 0}
+                                        className="rounded-[8px] border border-[#d4af37]/25 bg-[#101010] px-2.5 py-2 text-[11px] font-black text-[#d4af37] transition hover:border-[#d4af37] disabled:border-zinc-800 disabled:text-zinc-600"
+                                      >
+                                        ↑ 위로
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          moveMenuLinkedGroup(menu.id, group.id, "down")
+                                        }
+                                        disabled={groupIndex === menuGroups.length - 1}
+                                        className="rounded-[8px] border border-[#d4af37]/25 bg-[#101010] px-2.5 py-2 text-[11px] font-black text-[#d4af37] transition hover:border-[#d4af37] disabled:border-zinc-800 disabled:text-zinc-600"
+                                      >
+                                        ↓ 아래로
+                                      </button>
                                     </div>
                                   </div>
                                 ))}
