@@ -114,6 +114,7 @@ const [links, setLinks] = useState<GroupMenuLink[]>([]);
   );
   const [useStampReward, setUseStampReward] = useState(false);
   const [showOrderLookup, setShowOrderLookup] = useState(false);
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [orderLookupPhone, setOrderLookupPhone] = useState("");
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [recentOrdersLoading, setRecentOrdersLoading] = useState(false);
@@ -1125,6 +1126,11 @@ return groups.filter(
   const scrollToCart = () => {
     setShowOrderForm(true);
 
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setMobileCartOpen(true);
+      return;
+    }
+
     setTimeout(() => {
       const target = orderFormRef.current || cartRef.current;
 
@@ -1367,12 +1373,12 @@ return groups.filter(
 
       <div className="fixed inset-0 z-0 bg-[#050505]/82" />
 
-      <div className="relative z-10 mx-auto max-w-5xl p-2.5 md:p-4">
-        <section className="mb-5 flex min-h-[36vh] flex-col items-center justify-center rounded-3xl border border-[#d4af3735] bg-gradient-to-b from-[#151007]/90 via-black/70 to-[#050505]/95 px-3 py-4 text-center shadow-[0_0_70px_rgba(212,175,55,.18)] backdrop-blur-xl md:mb-8 md:min-h-[54vh] md:py-6">
+      <div className="relative z-10 mx-auto w-full max-w-[430px] px-3 py-3 md:max-w-5xl md:p-4">
+        <section className="mb-3 flex min-h-[22vh] flex-col items-center justify-center rounded-[22px] border border-[#d4af3735] bg-gradient-to-b from-[#151007]/95 via-black/78 to-[#050505]/95 px-3 py-3 text-center shadow-[0_0_42px_rgba(212,175,55,.16)] backdrop-blur-xl md:mb-8 md:min-h-[54vh] md:rounded-3xl md:py-6">
           <img
             src="/images/penguin-logo.png"
             alt="황제떡볶이"
-            className="w-[165px] object-contain drop-shadow-[0_0_60px_rgba(212,175,55,.85)] md:w-[700px]"
+            className="w-[118px] object-contain drop-shadow-[0_0_42px_rgba(212,175,55,.75)] md:w-[700px]"
           />
 
           <div className="mt-2 rounded-full border border-[#d4af3748] bg-[#120e05]/85 px-3 py-1 text-[10px] font-black tracking-[-0.03em] text-[#f4d56d] md:text-xs">
@@ -1526,7 +1532,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
         </section>
 
 
-        <div className="sticky top-0 z-30 mb-3 -mx-2.5 border-y border-[#d4af3724] bg-[#050505]/92 px-2.5 py-2 shadow-xl shadow-black/60 backdrop-blur md:top-0 md:mx-0 md:rounded-xl md:border md:px-3">
+        <div className="sticky top-0 z-30 mb-3 -mx-3 border-y border-[#d4af3724] bg-[#050505]/95 px-3 py-2 shadow-xl shadow-black/60 backdrop-blur md:top-0 md:mx-0 md:rounded-xl md:border md:px-3">
           <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {Object.keys(groupedMenu).map((category) => (
               <button
@@ -1553,7 +1559,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
 
         <div className="grid gap-3 md:grid-cols-3">
           <div className="md:col-span-2">
-            <div className="space-y-5">
+            <div className="space-y-4">
               {Object.entries(groupedMenu).map(([category, menuItems]) => (
                 <section
                   key={category}
@@ -1562,7 +1568,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                   }}
                   className="scroll-mt-20 md:scroll-mt-24"
                 >
-                  <h2 className="mb-3 border-b border-[#d4af3735] bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] bg-clip-text pb-1.5 text-lg font-black tracking-[-0.04em] text-transparent drop-shadow-[0_0_18px_rgba(212,175,55,.25)] md:text-xl">
+                  <h2 className="mb-2 border-b border-[#d4af3735] bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] bg-clip-text pb-1.5 text-base font-black tracking-[-0.04em] text-transparent drop-shadow-[0_0_18px_rgba(212,175,55,.25)] md:text-xl">
                     {category}
                   </h2>
 
@@ -1570,7 +1576,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                     {menuItems.map((menu) => (
                       <div
                         key={menu.id}
-                        className={`rounded-2xl border border-[#d4af3728] bg-gradient-to-b from-[#111111]/95 to-[#050505]/95 p-3 shadow-[0_0_22px_rgba(212,175,55,.08)] backdrop-blur-xl transition-all duration-300 hover:border-[#d4af37] hover:shadow-[0_0_30px_rgba(212,175,55,.22)] ${
+                        className={`rounded-[18px] border border-[#d4af3728] bg-gradient-to-b from-[#111111]/95 to-[#050505]/95 p-3 shadow-[0_0_16px_rgba(212,175,55,.07)] backdrop-blur-xl transition-all duration-300 hover:border-[#d4af37] hover:shadow-[0_0_30px_rgba(212,175,55,.22)] ${
                           menu.is_soldout ? "opacity-50" : ""
                         }`}
                       >
@@ -1615,7 +1621,7 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
             </div>
           </div>
 
-          <aside>
+          <aside className={`${showOrderForm ? "block" : "hidden"} md:block`}>
             <div ref={cartRef} className="md:sticky md:top-3 rounded-xl border border-[#d4af3735] bg-gradient-to-b from-[#111111]/95 to-[#050505]/95 p-2.5 shadow-2xl shadow-black/70 backdrop-blur">
               <h2 className="mb-2 text-base font-black text-[#f4d56d] md:text-lg">
                 장바구니
@@ -2189,6 +2195,85 @@ storeStatus.isOpen ? "text-green-300" : "text-red-300"
                   })
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {mobileCartOpen && (
+          <div className="fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm md:hidden">
+            <div className="absolute bottom-0 left-0 right-0 max-h-[86vh] overflow-y-auto rounded-t-[28px] border-t border-[#d4af3748] bg-[#070707] p-3 shadow-[0_-18px_60px_rgba(212,175,55,.16)]">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#d4af37]">HWANGJE CART</div>
+                  <div className="text-xl font-black text-[#fff2b8]">장바구니</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMobileCartOpen(false)}
+                  className="rounded-full border border-[#d4af3735] bg-[#111111] px-3 py-2 text-xs font-black text-[#f4d56d]"
+                >
+                  닫기
+                </button>
+              </div>
+
+              {cart.length === 0 && (
+                <div className="rounded-xl border border-zinc-800 bg-[#111111] p-4 text-center text-sm font-bold text-zinc-500">
+                  메뉴를 담아주세요
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {cart.map((item) => (
+                  <div key={item.cartId} className="rounded-xl border border-[#d4af3724] bg-[#101010] p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-black text-[#fff8d9]">{item.name}</div>
+                        {item.options.length > 0 && (
+                          <div className="mt-1 space-y-0.5 text-[11px] text-zinc-400">
+                            {item.options.map((option, index) => (
+                              <div key={index}>
+                                - {option.groupName}: {option.optionName}
+                                {option.price > 0 && ` +${option.price.toLocaleString()}원`}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="mt-2 text-sm font-black text-[#f4d56d]">{item.total.toLocaleString()}원</div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button onClick={() => decreaseCart(item.cartId)} className="rounded-md bg-zinc-800 px-2 py-1 text-xs font-black">-</button>
+                        <div className="min-w-6 text-center text-sm font-black">{item.qty}</div>
+                        <button onClick={() => increaseCart(item.cartId)} className="rounded-md bg-[#d4af37] px-2 py-1 text-xs font-black text-black">+</button>
+                      </div>
+                    </div>
+                    <button onClick={() => removeCart(item.cartId)} className="mt-2 w-full rounded-lg border border-red-500/30 bg-red-950/35 p-2 text-xs font-black text-red-300">삭제</button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 rounded-xl border border-[#d4af3728] bg-black/50 p-3">
+                <div className="flex justify-between text-sm text-zinc-400"><span>메뉴금액</span><span>{menuTotal.toLocaleString()}원</span></div>
+                <div className="mt-2 flex justify-between text-sm text-zinc-400"><span>배달비</span><span>{deliveryFee.toLocaleString()}원</span></div>
+                {useStampReward && <div className="mt-2 flex justify-between text-sm text-green-400"><span>스탬프 할인</span><span>-{finalStampDiscount.toLocaleString()}원</span></div>}
+                <div className="mt-3 flex justify-between border-t border-zinc-800 pt-3 text-lg font-black text-[#f4d56d]"><span>결제금액</span><span>{finalTotal.toLocaleString()}원</span></div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOrderForm(true);
+                  setMobileCartOpen(false);
+                  setTimeout(() => orderFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+                }}
+                disabled={!storeStatus.isOpen || cart.length === 0 || menuTotal < 10000 || deliveryDistance > MAX_DELIVERY_DISTANCE_KM}
+                className={`mt-3 w-full rounded-xl p-3 text-sm font-black ${
+                  !storeStatus.isOpen || cart.length === 0 || menuTotal < 10000 || deliveryDistance > MAX_DELIVERY_DISTANCE_KM
+                    ? "bg-zinc-800 text-zinc-500"
+                    : "bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] text-black"
+                }`}
+              >
+                주문정보 입력하기
+              </button>
             </div>
           </div>
         )}
