@@ -13,6 +13,8 @@ type Menu = {
   is_soldout: boolean;
   // 황제수정: 손님앱 메뉴 사진 URL. 관리자에서 업로드하면 코드 수정 없이 바로 반영
   image_url: string | null;
+  // 황제수정: 손님앱 메뉴 카드에 표시할 선택형 뱃지. 없으면 손님앱에 표시하지 않음
+  badge: string | null;
   sort_order: number | null;
 };
 
@@ -84,6 +86,7 @@ export default function AdminMenuPage() {
     price: "",
     description: "",
     category: "",
+    badge: "",
   });
 
   const [groupForm, setGroupForm] = useState({
@@ -354,6 +357,8 @@ export default function AdminMenuPage() {
       price: priceNumber,
       description: form.description.trim(),
       category: form.category.trim(),
+      // 황제수정: 새 메뉴 생성 시 뱃지는 선택값만 저장. 빈 값이면 손님앱에서 표시 안 함
+      badge: form.badge.trim() || null,
       image_url: null,
       sort_order: getNextSortOrder(menus),
       is_soldout: false,
@@ -369,6 +374,7 @@ export default function AdminMenuPage() {
       price: "",
       description: "",
       category: "",
+      badge: "",
     });
 
     fetchAll();
@@ -1348,6 +1354,25 @@ export default function AdminMenuPage() {
                       className={inputClass}
                     />
                   </div>
+
+                  {/* 황제수정: 손님앱 메뉴 카드 뱃지 선택. 빈 값이면 표시 안 함 */}
+                  <div>
+                    <label className={labelClass}>손님앱 뱃지</label>
+                    <select
+                      value={form.badge}
+                      onChange={(e) =>
+                        setForm({ ...form, badge: e.target.value })
+                      }
+                      className={inputClass}
+                    >
+                      <option value="">뱃지 없음</option>
+                      <option value="사장님 추천">사장님 추천</option>
+                      <option value="인기">인기</option>
+                      <option value="베스트">베스트</option>
+                      <option value="신메뉴">신메뉴</option>
+                    </select>
+                  </div>
+
                   <button
                     onClick={addMenu}
                     className="mt-2 rounded-[10px] border border-[#d4af37]/60 bg-[#d4af37] px-4 py-3 text-sm font-black text-black transition hover:bg-[#f0c75a]"
@@ -1933,6 +1958,21 @@ export default function AdminMenuPage() {
                             }
                             className={`${compactInputClass} md:col-span-2`}
                           />
+
+                          {/* 황제수정: 손님앱 메뉴 카드 뱃지. 선택값이 없으면 손님앱에서 아무 뱃지도 표시하지 않음 */}
+                          <select
+                            value={menu.badge || ""}
+                            onChange={(e) =>
+                              updateMenu(menu.id, "badge", e.target.value)
+                            }
+                            className={`${compactInputClass} md:col-span-2`}
+                          >
+                            <option value="">뱃지 없음</option>
+                            <option value="사장님 추천">사장님 추천</option>
+                            <option value="인기">인기</option>
+                            <option value="베스트">베스트</option>
+                            <option value="신메뉴">신메뉴</option>
+                          </select>
                         </div>
 
                         <div className="mt-2 grid grid-cols-2 gap-2">
