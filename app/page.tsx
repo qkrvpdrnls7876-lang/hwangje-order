@@ -19,6 +19,8 @@ type Menu = {
   is_soldout: boolean;
   // 황제수정: 관리자 메뉴관리에서 업로드한 실제 메뉴 사진 URL
   image_url: string | null;
+  // 황제수정: 메뉴별 뱃지. 값이 있을 때만 손님 화면에 표시
+  badge?: string | null;
 };
 
 type OptionGroup = {
@@ -1588,7 +1590,7 @@ export default function Home() {
                 key={category}
                 type="button"
                 onClick={() => scrollToCategory(category)}
-                className="shrink-0 rounded-full border border-[#d4af3735] bg-gradient-to-b from-[#17130a] to-[#050505] px-4 py-3 text-base font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.12)] active:bg-gradient-to-r active:from-[#fff1a8] active:via-[#d4af37] active:to-[#8a6a14] active:text-black md:text-base"
+                className="shrink-0 rounded-full border border-[#d4af3735] bg-gradient-to-b from-[#17130a] to-[#050505] px-5 py-4 text-[16px] font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.12)] active:bg-gradient-to-r active:from-[#fff1a8] active:via-[#d4af37] active:to-[#8a6a14] active:text-black md:text-base"
               >
                 {category}
               </button>
@@ -1617,7 +1619,7 @@ export default function Home() {
                   }}
                   className="scroll-mt-20 md:scroll-mt-24"
                 >
-                  <h2 className="mb-3 border-b border-[#d4af3735] bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] bg-clip-text pb-1.5 text-xl font-black tracking-[-0.04em] /* 황제수정: 카테고리 제목 확대 */ text-transparent drop-shadow-[0_0_18px_rgba(212,175,55,.25)] md:text-xl">
+                  <h2 className="mb-4 border-b border-[#d4af3735] bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] bg-clip-text pb-2 text-[26px] font-black tracking-[-0.06em] /* 황제수정: 손님용 카테고리 제목 추가 확대 */ text-transparent drop-shadow-[0_0_18px_rgba(212,175,55,.25)] md:text-2xl">
                     {category}
                   </h2>
 
@@ -1628,55 +1630,61 @@ export default function Home() {
                         type="button"
                         onClick={() => openOptionModal(menu)}
                         disabled={menu.is_soldout}
-                        className={`group relative flex w-full items-stretch gap-3 border-[#ffffff10] px-4 py-5 text-left transition active:scale-[0.99] ${
+                        className={`group relative flex w-full items-stretch gap-4 border-[#ffffff10] px-5 py-7 text-left transition active:scale-[0.99] ${
                           index > 0 ? "border-t" : ""
                         } ${
                           menu.is_soldout
                             ? "opacity-45"
                             : "hover:bg-[#d4af37]/7 active:bg-[#d4af37]/10"
-                        } /* 황제수정: 메뉴명/설명/가격/이미지 배민식 행 레이아웃 */`}
+                        } /* 황제수정: 손님 메뉴카드 글씨/사진/터치영역 추가 확대 */`}
                       >
                         <div className="min-w-0 flex-1 pr-1">
-                          <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                            <span className="rounded-md bg-[#f4d56d]/12 px-2 py-1 text-[12px] font-black text-[#f4d56d]">
-                              사장님 추천
-                            </span>
-                            {menu.is_soldout && (
-                              <span className="rounded-md bg-red-600 px-2 py-1 text-[12px] font-black text-white">
-                                품절
-                              </span>
-                            )}
-                          </div>
+                          {(menu.badge || menu.is_soldout) && (
+                            <div className="mb-3 flex flex-wrap items-center gap-2">
+                              {/* 황제수정: 사장님 추천 하드코딩 제거. menus.badge 값이 있을 때만 표시 */}
+                              {menu.badge && menu.badge.trim() !== "" && (
+                                <span className="rounded-lg bg-[#f4d56d]/14 px-3 py-1.5 text-[14px] font-black text-[#f4d56d]">
+                                  {menu.badge}
+                                </span>
+                              )}
 
-                          <h3 className="break-keep text-[22px] font-black leading-[1.2] tracking-[-0.06em] text-[#fff8d9] md:text-2xl">
+                              {menu.is_soldout && (
+                                <span className="rounded-lg bg-red-600 px-3 py-1.5 text-[14px] font-black text-white">
+                                  품절
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          <h3 className="break-keep text-[31px] font-black leading-[1.08] tracking-[-0.08em] text-[#fff8d9] md:text-3xl">
                             {menu.name}
                           </h3>
 
                           {menu.description && (
-                            <p className="mt-2 line-clamp-2 break-keep text-[15px] font-semibold leading-relaxed text-zinc-400 md:text-base">
+                            <p className="mt-3 line-clamp-2 break-keep text-[17px] font-semibold leading-relaxed text-zinc-400 md:text-lg">
                               {menu.description}
                             </p>
                           )}
 
-                          <div className="mt-3 flex items-end gap-2">
-                            <div className="text-[23px] font-black tracking-[-0.04em] text-[#f4d56d] md:text-3xl">
+                          <div className="mt-5 flex items-end gap-2">
+                            <div className="text-[34px] font-black tracking-[-0.06em] text-[#f4d56d] md:text-4xl">
                               {menu.price.toLocaleString()}원
                             </div>
-                            <div className="pb-1 text-[13px] font-bold text-zinc-500">
+                            <div className="pb-[5px] text-[15px] font-bold text-zinc-500">
                               부터
                             </div>
                           </div>
                         </div>
 
-                        <div className="relative mt-1 h-[108px] w-[108px] shrink-0 overflow-hidden rounded-[22px] border border-[#d4af372c] bg-gradient-to-br from-[#2a2109] via-[#111111] to-[#050505] shadow-[0_10px_28px_rgba(0,0,0,.38)] md:h-[128px] md:w-[128px]">
+                        <div className="relative mt-1 h-[132px] w-[132px] shrink-0 overflow-hidden rounded-[24px] border border-[#d4af372c] bg-gradient-to-br from-[#2a2109] via-[#111111] to-[#050505] shadow-[0_12px_34px_rgba(0,0,0,.44)] md:h-[144px] md:w-[144px]">
                           <img
                             src={getMenuImageSrc(menu)}
                             alt={menu.name}
-                            className="h-full w-full object-contain p-3 drop-shadow-[0_0_22px_rgba(212,175,55,.42)]"
+                            className="h-full w-full object-contain p-2 drop-shadow-[0_0_22px_rgba(212,175,55,.42)]"
                           />
 
                           {!menu.is_soldout && (
-                            <div className="absolute bottom-2 right-2 grid h-11 w-11 place-items-center rounded-full border border-[#d4af3735] bg-[#fff8d9] text-3xl font-black leading-none text-black shadow-lg shadow-black/45">
+                            <div className="absolute bottom-2 right-2 grid h-[52px] w-[52px] place-items-center rounded-full border border-[#d4af3735] bg-[#fff8d9] text-[34px] font-black leading-none text-black shadow-lg shadow-black/45">
                               +
                             </div>
                           )}
