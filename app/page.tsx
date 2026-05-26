@@ -103,6 +103,12 @@ export default function Home() {
   const MAX_DELIVERY_DISTANCE_KM = 8;
   const SAVED_CUSTOMER_KEY = "hwangje_saved_customer";
 
+  // 황제수정: 실제 최소주문금액과 스탬프 운영 기준을 한 곳에서 관리
+  const MIN_ORDER_AMOUNT = 11000;
+  const STAMP_ONE_THRESHOLD = 11000;
+  const STAMP_TWO_THRESHOLD = 22000;
+  const DAILY_MAX_EARNED_STAMPS = 2;
+
   const [menus, setMenus] = useState<Menu[]>([]);
   const [groups, setGroups] = useState<OptionGroup[]>([]);
   const [items, setItems] = useState<OptionItem[]>([]);
@@ -446,9 +452,56 @@ export default function Home() {
     });
   };
 
-  const getStampDiscount = (stampCount: number) => {
-    if (stampCount < 5) return 0;
-    return stampCount * 500;
+  // 황제수정: 황제오더 스탬프 사용 정책
+  // 5개 = 2,500원 / 10개 = 6,000원. 10개 이상이면 10개권을 우선 적용
+  const getStampRewardTier = (stampCount: number) => {
+    if (stampCount >= 10) {
+      return {
+        requiredStamps: 10,
+        discount: 6000,
+        label: "스탬프 10개 = 6,000원 할인",
+      };
+    }
+
+    if (stampCount >= 5) {
+      return {
+        requiredStamps: 5,
+        discount: 2500,
+        label: "스탬프 5개 = 2,500원 할인",
+      };
+    }
+
+    return {
+      requiredStamps: 0,
+      discount: 0,
+      label: "스탬프 5개부터 사용 가능",
+    };
+  };
+
+  // 황제수정: 객단가가 낮은 매장 구조에 맞춘 적립 정책
+  // 메뉴금액 11,000원 이상 +1 / 22,000원 이상 +2
+  const getBaseEarnedStamps = (orderMenuTotal: number) => {
+    if (orderMenuTotal >= STAMP_TWO_THRESHOLD) return 2;
+    if (orderMenuTotal >= STAMP_ONE_THRESHOLD) return 1;
+    return 0;
+  };
+
+  // 황제수정: 첫 자사앱 주문은 총 +2개까지 보너스 보정. 하루 적립 상한도 같이 적용
+  const getEarnedStampsForOrder = (params: {
+    orderMenuTotal: number;
+    isFirstStampOrder: boolean;
+    alreadyEarnedToday: number;
+  }) => {
+    const baseEarned = getBaseEarnedStamps(params.orderMenuTotal);
+    const firstOrderBoosted = params.isFirstStampOrder
+      ? Math.max(baseEarned, 2)
+      : baseEarned;
+    const dailyRemaining = Math.max(
+      DAILY_MAX_EARNED_STAMPS - params.alreadyEarnedToday,
+      0,
+    );
+
+    return Math.min(firstOrderBoosted, dailyRemaining);
   };
 
   const copyBankInfo = async () => {
@@ -1153,7 +1206,9 @@ export default function Home() {
   const total = menuTotal + deliveryFee;
 
   const stampCount = stampCustomer?.stamp_count || 0;
-  const availableStampDiscount = getStampDiscount(stampCount);
+  const stampRewardTier = getStampRewardTier(stampCount);
+  const availableStampDiscount = stampRewardTier.discount;
+  const usedStampCount = useStampReward ? stampRewardTier.requiredStamps : 0;
   const finalStampDiscount = useStampReward
     ? Math.min(availableStampDiscount, total)
     : 0;
@@ -1204,9 +1259,9 @@ export default function Home() {
         return;
       }
 
-      if (menuTotal < 10000) {
+      if (menuTotal < MIN_ORDER_AMOUNT) {
         alert(
-          `최소 주문금액은 10,000원입니다.\n현재 메뉴금액 ${menuTotal.toLocaleString()}원`,
+          `최소 주문금액은 ${MIN_ORDER_AMOUNT.toLocaleString()}원입니다.\n현재 메뉴금액 ${menuTotal.toLocaleString()}원`,
         );
         return;
       }
@@ -1311,6 +1366,49 @@ export default function Home() {
         return;
       }
 
+      // 황제수정: 스탬프 적립 계산
+      // - 11,000원 이상 +1
+      // - 22,000원 이상 +2
+      // - 첫 자사앱 주문은 총 +2까지 보정
+      // - 하루 동일번호 최대 +2
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const { data: todayRewardOrders, error: todayRewardError } =
+        await supabase
+          .from("orders")
+          .select("earned_stamps")
+          .eq("phone", phone)
+          .gte("created_at", todayStart.toISOString());
+
+      if (todayRewardError) {
+        alert("오늘 스탬프 적립 확인 실패: " + todayRewardError.message);
+        return;
+      }
+
+      const alreadyEarnedToday = (todayRewardOrders || []).reduce(
+        (sum, order: any) => sum + Number(order.earned_stamps || 0),
+        0,
+      );
+
+      const { data: currentStampData, error: currentStampError } =
+        await supabase
+          .from("stamp_customers")
+          .select("*")
+          .eq("phone", phone)
+          .maybeSingle();
+
+      if (currentStampError) {
+        alert("스탬프 정보 확인 실패: " + currentStampError.message);
+        return;
+      }
+
+      const earnedStamps = getEarnedStampsForOrder({
+        orderMenuTotal: menuTotal,
+        isFirstStampOrder: !currentStampData,
+        alreadyEarnedToday,
+      });
+
       const menuText = JSON.stringify(
         cart.map((item) => ({
           name: item.name,
@@ -1345,6 +1443,8 @@ export default function Home() {
           delivery_distance_km: Number(deliveryDistance.toFixed(2)),
           stamp_discount: finalStampDiscount,
           used_stamp_reward: useStampReward,
+          earned_stamps: earnedStamps,
+          used_stamps: usedStampCount,
           stamp_processed: false,
           device_id: getDeviceId(),
           device_info: getDeviceInfo(),
@@ -1362,33 +1462,33 @@ export default function Home() {
         return;
       }
 
-      const { data: stampData } = await supabase
-        .from("stamp_customers")
-        .select("*")
-        .eq("phone", phone)
-        .maybeSingle();
-
-      if (!stampData) {
+      // 황제수정: 주문 저장 성공 후 스탬프 적립/사용 반영
+      // 적립과 사용을 같은 주문에서 처리해도 음수가 되지 않게 보정
+      if (!currentStampData) {
         await supabase.from("stamp_customers").insert({
           phone,
-          stamp_count: 1,
+          stamp_count: Math.max(earnedStamps - usedStampCount, 0),
           total_orders: 1,
+          last_rewarded_at:
+            earnedStamps > 0 ? new Date().toISOString() : null,
         });
       } else {
-        let nextStamp = Number(stampData.stamp_count || 0) + 1;
-
-        if (useStampReward) {
-          nextStamp = Math.max(
-            nextStamp - Math.floor(finalStampDiscount / 500),
-            0,
-          );
-        }
+        const nextStamp = Math.max(
+          Number(currentStampData.stamp_count || 0) +
+            earnedStamps -
+            usedStampCount,
+          0,
+        );
 
         await supabase
           .from("stamp_customers")
           .update({
             stamp_count: nextStamp,
-            total_orders: Number(stampData.total_orders || 0) + 1,
+            total_orders: Number(currentStampData.total_orders || 0) + 1,
+            last_rewarded_at:
+              earnedStamps > 0
+                ? new Date().toISOString()
+                : currentStampData.last_rewarded_at || null,
           })
           .eq("phone", phone);
       }
@@ -1430,7 +1530,7 @@ export default function Home() {
 
           <div className="mt-3 rounded-2xl border border-[#d4af3728] bg-[#050505]/90 px-4 py-3 text-base font-black text-zinc-200 md:text-base">
             최소 주문금액
-            <span className="ml-2 text-[#f4d56d]">10,000원</span>
+            <span className="ml-2 text-[#f4d56d]">11,000원</span>
           </div>
 
           <div
@@ -1806,9 +1906,9 @@ export default function Home() {
                   결제금액 {finalTotal.toLocaleString()}원
                 </div>
 
-                {cart.length > 0 && menuTotal < 10000 && (
+                {cart.length > 0 && menuTotal < MIN_ORDER_AMOUNT && (
                   <div className="mt-2 text-base text-red-400">
-                    최소 주문금액까지 {(10000 - menuTotal).toLocaleString()}원
+                    최소 주문금액까지 {(MIN_ORDER_AMOUNT - menuTotal).toLocaleString()}원
                     부족
                   </div>
                 )}
@@ -1831,13 +1931,13 @@ export default function Home() {
                 disabled={
                   !storeStatus.isOpen ||
                   cart.length === 0 ||
-                  menuTotal < 10000 ||
+                  menuTotal < MIN_ORDER_AMOUNT ||
                   deliveryDistance > MAX_DELIVERY_DISTANCE_KM
                 }
                 className={`mt-4 w-full rounded-2xl p-4 text-lg font-black ${
                   !storeStatus.isOpen ||
                   cart.length === 0 ||
-                  menuTotal < 10000 ||
+                  menuTotal < MIN_ORDER_AMOUNT ||
                   deliveryDistance > MAX_DELIVERY_DISTANCE_KM
                     ? "bg-zinc-800 text-zinc-500"
                     : "bg-red-500"
@@ -1914,11 +2014,11 @@ export default function Home() {
                       </div>
 
                       <div className="mt-2 text-sm text-zinc-400">
-                        💰 스탬프 1개 = 500원 할인
+                        💰 5개 = 2,500원 / 10개 = 6,000원 할인
                       </div>
 
                       <div className="mt-1 text-sm text-zinc-400">
-                        🎁 5개부터 사용 가능
+                        🎁 11,000원 이상 +1개 / 22,000원 이상 +2개
                       </div>
 
                       <div className="mt-2 text-base font-black text-yellow-400">
@@ -1936,8 +2036,8 @@ export default function Home() {
                           }`}
                         >
                           {useStampReward
-                            ? `${finalStampDiscount.toLocaleString()}원 할인 적용됨`
-                            : `${availableStampDiscount.toLocaleString()}원 할인 사용하기`}
+                            ? `${stampRewardTier.label} 적용됨`
+                            : `${stampRewardTier.label} 사용하기`}
                         </button>
                       ) : (
                         <div className="mt-2 text-base text-zinc-400">
@@ -2402,13 +2502,13 @@ export default function Home() {
                 disabled={
                   !storeStatus.isOpen ||
                   cart.length === 0 ||
-                  menuTotal < 10000 ||
+                  menuTotal < MIN_ORDER_AMOUNT ||
                   deliveryDistance > MAX_DELIVERY_DISTANCE_KM
                 }
                 className={`mt-3 w-full rounded-xl p-3 text-base font-black ${
                   !storeStatus.isOpen ||
                   cart.length === 0 ||
-                  menuTotal < 10000 ||
+                  menuTotal < MIN_ORDER_AMOUNT ||
                   deliveryDistance > MAX_DELIVERY_DISTANCE_KM
                     ? "bg-zinc-800 text-zinc-500"
                     : "bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] text-black"
