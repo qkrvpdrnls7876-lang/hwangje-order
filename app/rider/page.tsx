@@ -254,86 +254,18 @@ export default function RiderPage() {
     window.location.href = `tel:${cleanPhone}`;
   };
 
+  // 황제수정: 스탬프 적립/차감은 손님 주문 생성 시점에서 1회 처리한다.
+  // 라이더 완료 처리에서 다시 적립하면 중복 적립이 발생하므로 주문 표시값만 정리한다.
   const processStamp = async (order: Order) => {
     if (order.stamp_processed) return true;
 
-    const phone = normalizePhone(order.phone);
-    if (!phone) return true;
-
-    const { data: customerData, error: customerError } = await supabase
-      .from("stamp_customers")
-      .select("*")
-      .eq("phone", phone)
-      .maybeSingle();
-
-    if (customerError) {
-      showToast("스탬프 고객 조회 실패: " + customerError.message, "스탬프 실패", "error");
-      return false;
-    }
-
-    const customer = customerData as StampCustomer | null;
-
-    if (order.used_stamp_reward) {
-      if (customer) {
-        const { error } = await supabase
-          .from("stamp_customers")
-          .update({
-            stamp_count: 0,
-            total_orders: customer.total_orders + 1,
-          })
-          .eq("phone", phone);
-
-        if (error) {
-          showToast("스탬프 초기화 실패: " + error.message, "스탬프 실패", "error");
-          return false;
-        }
-      } else {
-        const { error } = await supabase.from("stamp_customers").insert({
-          phone,
-          stamp_count: 0,
-          total_orders: 1,
-        });
-
-        if (error) {
-          showToast("스탬프 고객 생성 실패: " + error.message, "스탬프 실패", "error");
-          return false;
-        }
-      }
-    } else {
-      if (customer) {
-        const { error } = await supabase
-          .from("stamp_customers")
-          .update({
-            stamp_count: customer.stamp_count + 1,
-            total_orders: customer.total_orders + 1,
-          })
-          .eq("phone", phone);
-
-        if (error) {
-          showToast("스탬프 적립 실패: " + error.message, "스탬프 실패", "error");
-          return false;
-        }
-      } else {
-        const { error } = await supabase.from("stamp_customers").insert({
-          phone,
-          stamp_count: 1,
-          total_orders: 1,
-        });
-
-        if (error) {
-          showToast("스탬프 신규 적립 실패: " + error.message, "스탬프 실패", "error");
-          return false;
-        }
-      }
-    }
-
-    const { error: orderError } = await supabase
+    const { error } = await supabase
       .from("orders")
       .update({ stamp_processed: true })
       .eq("id", order.id);
 
-    if (orderError) {
-      showToast("스탬프 처리 표시 실패: " + orderError.message, "스탬프 실패", "error");
+    if (error) {
+      showToast("스탬프 처리 표시 실패: " + error.message, "스탬프 표시 실패", "error");
       return false;
     }
 
@@ -369,7 +301,7 @@ export default function RiderPage() {
   const requestCompleteDelivery = (order: Order) => {
     setConfirmDialog({
       title: "배달완료 처리",
-      message: `오늘주문 #${getTodayOrderNumber(order.id)}\n${order.customer || "고객"}님 주문을 완료 처리할까요?\n\n완료 후 스탬프가 처리됩니다.`,
+      message: `오늘주문 #${getTodayOrderNumber(order.id)}\n${order.customer || "고객"}님 주문을 완료 처리할까요?\n\n스탬프는 주문 접수 시 이미 반영됩니다.`,
       confirmText: "배달완료",
       cancelText: "취소",
       tone: "green",

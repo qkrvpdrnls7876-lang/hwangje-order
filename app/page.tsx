@@ -1445,7 +1445,7 @@ export default function Home() {
           used_stamp_reward: useStampReward,
           earned_stamps: earnedStamps,
           used_stamps: usedStampCount,
-          stamp_processed: false,
+          stamp_processed: true,
           device_id: getDeviceId(),
           device_info: getDeviceInfo(),
         })

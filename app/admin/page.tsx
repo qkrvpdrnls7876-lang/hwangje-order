@@ -480,89 +480,18 @@ export default function AdminPage() {
     };
   }, []);
 
-  const processStamp = async (order: Order) => {
+  // 황제수정: 스탬프 적립/차감은 손님 주문 생성 시점에서 1회 처리한다.
+  // 관리자/POS 완료 처리에서 다시 적립하면 중복 적립이 발생하므로 주문 표시값만 정리한다.
+  const markStampHandled = async (order: Order) => {
     if (order.stamp_processed) return;
 
-    const phone = cleanPhone(order.phone);
-
-    if (!phone) return;
-
-    const { data: customerData, error: customerError } = await supabase
-      .from("stamp_customers")
-      .select("*")
-      .eq("phone", phone)
-      .maybeSingle();
-
-    if (customerError) {
-      showToast("스탬프 고객 조회 실패", customerError.message, "danger");
-      return;
-    }
-
-    const customer = customerData as StampCustomer | null;
-
-    if (order.used_stamp_reward) {
-      if (customer) {
-        const { error } = await supabase
-          .from("stamp_customers")
-          .update({
-            stamp_count: 0,
-            total_orders: customer.total_orders + 1,
-          })
-          .eq("phone", phone);
-
-        if (error) {
-          showToast("스탬프 초기화 실패", error.message, "danger");
-          return;
-        }
-      } else {
-        const { error } = await supabase.from("stamp_customers").insert({
-          phone,
-          stamp_count: 0,
-          total_orders: 1,
-        });
-
-        if (error) {
-          showToast("스탬프 고객 생성 실패", error.message, "danger");
-          return;
-        }
-      }
-    } else {
-      if (customer) {
-        const { error } = await supabase
-          .from("stamp_customers")
-          .update({
-            stamp_count: customer.stamp_count + 1,
-            total_orders: customer.total_orders + 1,
-          })
-          .eq("phone", phone);
-
-        if (error) {
-          showToast("스탬프 적립 실패", error.message, "danger");
-          return;
-        }
-      } else {
-        const { error } = await supabase.from("stamp_customers").insert({
-          phone,
-          stamp_count: 1,
-          total_orders: 1,
-        });
-
-        if (error) {
-          showToast("스탬프 신규 적립 실패", error.message, "danger");
-          return;
-        }
-      }
-    }
-
-    const { error: orderError } = await supabase
+    const { error } = await supabase
       .from("orders")
-      .update({
-        stamp_processed: true,
-      })
+      .update({ stamp_processed: true })
       .eq("id", order.id);
 
-    if (orderError) {
-      showToast("스탬프 처리표시 실패", orderError.message, "danger");
+    if (error) {
+      showToast("스탬프 처리표시 실패", error.message, "danger");
     }
   };
 
@@ -584,7 +513,7 @@ export default function AdminPage() {
     }
 
     if (status === "완료") {
-      await processStamp(order);
+      await markStampHandled(order);
     }
 
     fetchOrders();
