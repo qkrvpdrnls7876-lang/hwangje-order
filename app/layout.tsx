@@ -8,6 +8,17 @@ export const metadata: Metadata = {
   description: "황제떡볶이 자체 주문앱",
   manifest: "/manifest.json",
 
+  // 황제수정: 개발 중 구글/검색엔진 노출 방지
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+    },
+  },
+
   appleWebApp: {
     capable: true,
     title: "황제떡볶이",
@@ -52,19 +63,23 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
-        <meta name="application-name" content="황제떡볶이"/>
-        <meta name="apple-mobile-web-app-capable" content="yes"/>
-        <meta name="apple-mobile-web-app-title" content="황제떡볶이"/>
+        {/* 황제수정: 개발 중 검색엔진 노출 방지 */}
+        <meta name="robots" content="noindex,nofollow,noimageindex" />
+        <meta name="googlebot" content="noindex,nofollow,noimageindex" />
+
+        <meta name="application-name" content="황제떡볶이" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="황제떡볶이" />
         <meta
           name="apple-mobile-web-app-status-bar-style"
           content="black-translucent"
         />
-        <meta name="mobile-web-app-capable" content="yes"/>
+        <meta name="mobile-web-app-capable" content="yes" />
 
-        <meta name="theme-color" content="#050505"/>
+        <meta name="theme-color" content="#050505" />
 
-        <link rel="manifest" href="/manifest.json"/>
-        <link rel="apple-touch-icon" href="/icon-192.png"/>
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
 
       <body className="bg-[#050505]">
