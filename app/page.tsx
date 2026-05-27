@@ -1517,11 +1517,11 @@ export default function Home() {
       <div className="fixed inset-0 z-0 bg-[#050505]/82" />
 
       <div className="relative z-10 mx-auto w-full max-w-[640px] px-0 py-0 md:max-w-6xl md:p-6 /* 황제수정: 손님앱은 배민처럼 모바일 폭을 꽉 쓰고, PC만 여백 적용 */">
-        <section className="mx-3 mt-3 mb-4 flex flex-col items-center justify-center rounded-[28px] border border-[#d4af3735] bg-gradient-to-b from-[#151007]/95 via-black/84 to-[#050505]/96 px-4 py-5 text-center shadow-[0_0_42px_rgba(212,175,55,.16)] backdrop-blur-xl md:mb-8 md:min-h-[42vh] md:rounded-3xl md:py-6 /* 황제수정: 손님 첫 화면을 앱 홈처럼 압축. 메뉴가 바로 보이게 변경 */">
+        <section className="mx-3 mt-3 mb-4 flex flex-col items-center justify-center rounded-[28px] border border-[#d4af3735] bg-gradient-to-b from-[#151007]/95 via-black/84 to-[#050505]/96 px-4 py-4 text-center shadow-[0_0_42px_rgba(212,175,55,.16)] backdrop-blur-xl md:mb-8 md:min-h-[42vh] md:rounded-3xl md:py-6 /* 황제수정: 손님 첫 화면을 앱 홈처럼 압축. 메뉴가 바로 보이게 변경 */">
           <img
             src="/images/penguin-logo.png"
             alt="황제떡볶이"
-            className="w-[138px] object-contain drop-shadow-[0_0_42px_rgba(212,175,55,.75)] md:w-[520px] /* 황제수정: 모바일 로고 과대 노출 축소 */"
+            className="w-[124px] object-contain drop-shadow-[0_0_34px_rgba(212,175,55,.62)] md:w-[420px] /* 황제수정: 모바일 로고 축소 + 고급형 여백 확보 */"
           />
 
           <div className="mt-3 rounded-full border border-[#d4af3748] bg-[#120e05]/85 px-4 py-1.5 text-sm font-black tracking-[-0.03em] text-[#f4d56d] md:text-sm">
@@ -1534,7 +1534,7 @@ export default function Home() {
           </div>
 
           <div
-            className={`mt-3 w-full max-w-md rounded-3xl border px-4 py-4 text-left shadow-lg md:max-w-sm ${
+            className={`mt-3 w-full max-w-md rounded-3xl border px-4 py-3 text-left shadow-lg md:max-w-sm ${
               storeStatus.isOpen
                 ? "border-green-400/35 bg-green-950/35 shadow-green-500/10"
                 : "border-red-400/35 bg-red-950/35 shadow-red-500/10"
@@ -1690,7 +1690,7 @@ export default function Home() {
                 key={category}
                 type="button"
                 onClick={() => scrollToCategory(category)}
-                className="shrink-0 rounded-full border border-[#d4af3735] bg-gradient-to-b from-[#17130a] to-[#050505] px-5 py-4 text-[16px] font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.12)] active:bg-gradient-to-r active:from-[#fff1a8] active:via-[#d4af37] active:to-[#8a6a14] active:text-black md:text-base"
+                className="shrink-0 rounded-full border border-[#d4af3735] bg-gradient-to-b from-[#17130a] to-[#050505] px-4 py-3 text-[14px] font-black text-[#f4d56d] shadow-[0_0_14px_rgba(212,175,55,.12)] active:bg-gradient-to-r active:from-[#fff1a8] active:via-[#d4af37] active:to-[#8a6a14] active:text-black md:text-base"
               >
                 {category}
               </button>
@@ -1719,7 +1719,7 @@ export default function Home() {
                   }}
                   className="scroll-mt-20 md:scroll-mt-24"
                 >
-                  <h2 className="mb-4 border-b border-[#d4af3735] bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] bg-clip-text pb-2 text-[26px] font-black tracking-[-0.06em] /* 황제수정: 손님용 카테고리 제목 추가 확대 */ text-transparent drop-shadow-[0_0_18px_rgba(212,175,55,.25)] md:text-2xl">
+                  <h2 className="mb-4 border-b border-[#d4af3735] bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] bg-clip-text pb-2 text-[22px] font-black tracking-[-0.045em] /* 황제수정: 손님용 카테고리 제목 축소 및 고급형 간격 정돈 */ text-transparent drop-shadow-[0_0_18px_rgba(212,175,55,.25)] md:text-2xl">
                     {category}
                   </h2>
 
@@ -1730,53 +1730,53 @@ export default function Home() {
                         type="button"
                         onClick={() => openOptionModal(menu)}
                         disabled={menu.is_soldout}
-                        className={`group relative flex w-full items-stretch gap-4 border-[#ffffff10] px-5 py-7 text-left transition active:scale-[0.99] ${
+                        className={`group relative flex w-full items-stretch gap-3 border-[#ffffff10] px-4 py-5 text-left transition active:scale-[0.99] ${
                           index > 0 ? "border-t" : ""
                         } ${
                           menu.is_soldout
                             ? "opacity-45"
                             : "hover:bg-[#d4af37]/7 active:bg-[#d4af37]/10"
-                        } /* 황제수정: 손님 메뉴카드 글씨/사진/터치영역 추가 확대 */`}
+                        } /* 황제수정: 손님 메뉴카드 글씨 축소 + 여백 정돈 + 고급형 리스트 */`}
                       >
                         <div className="min-w-0 flex-1 pr-1">
                           {(menu.badge || menu.is_soldout) && (
                             <div className="mb-3 flex flex-wrap items-center gap-2">
                               {/* 황제수정: 사장님 추천 하드코딩 제거. menus.badge 값이 있을 때만 표시 */}
                               {menu.badge && menu.badge.trim() !== "" && (
-                                <span className="rounded-lg bg-[#f4d56d]/14 px-3 py-1.5 text-[14px] font-black text-[#f4d56d]">
+                                <span className="rounded-lg bg-[#f4d56d]/14 px-2.5 py-1 text-[12px] font-black text-[#f4d56d]">
                                   {menu.badge}
                                 </span>
                               )}
 
                               {menu.is_soldout && (
-                                <span className="rounded-lg bg-red-600 px-3 py-1.5 text-[14px] font-black text-white">
+                                <span className="rounded-lg bg-red-600 px-2.5 py-1 text-[12px] font-black text-white">
                                   품절
                                 </span>
                               )}
                             </div>
                           )}
 
-                          <h3 className="break-keep text-[31px] font-black leading-[1.08] tracking-[-0.08em] text-[#fff8d9] md:text-3xl">
+                          <h3 className="break-keep text-[24px] font-black leading-[1.16] tracking-[-0.055em] text-[#fff8d9] md:text-2xl">
                             {menu.name}
                           </h3>
 
                           {menu.description && (
-                            <p className="mt-3 line-clamp-2 break-keep text-[17px] font-semibold leading-relaxed text-zinc-400 md:text-lg">
+                            <p className="mt-2 line-clamp-2 break-keep text-[14px] font-semibold leading-relaxed text-zinc-400 md:text-lg">
                               {menu.description}
                             </p>
                           )}
 
                           <div className="mt-5 flex items-end gap-2">
-                            <div className="text-[34px] font-black tracking-[-0.06em] text-[#f4d56d] md:text-4xl">
+                            <div className="text-[26px] font-black tracking-[-0.045em] text-[#f4d56d] md:text-3xl">
                               {menu.price.toLocaleString()}원
                             </div>
-                            <div className="pb-[5px] text-[15px] font-bold text-zinc-500">
+                            <div className="pb-[3px] text-[13px] font-bold text-zinc-500">
                               부터
                             </div>
                           </div>
                         </div>
 
-                        <div className="relative mt-1 h-[132px] w-[132px] shrink-0 overflow-hidden rounded-[24px] border border-[#d4af372c] bg-gradient-to-br from-[#2a2109] via-[#111111] to-[#050505] shadow-[0_12px_34px_rgba(0,0,0,.44)] md:h-[144px] md:w-[144px]">
+                        <div className="relative mt-1 h-[112px] w-[112px] shrink-0 overflow-hidden rounded-[22px] border border-[#d4af372c] bg-gradient-to-br from-[#2a2109] via-[#111111] to-[#050505] shadow-[0_12px_34px_rgba(0,0,0,.44)] md:h-[128px] md:w-[128px]">
                           <img
                             src={getMenuImageSrc(menu)}
                             alt={menu.name}
@@ -1784,7 +1784,7 @@ export default function Home() {
                           />
 
                           {!menu.is_soldout && (
-                            <div className="absolute bottom-2 right-2 grid h-[52px] w-[52px] place-items-center rounded-full border border-[#d4af3735] bg-[#fff8d9] text-[34px] font-black leading-none text-black shadow-lg shadow-black/45">
+                            <div className="absolute bottom-2 right-2 grid h-[44px] w-[44px] place-items-center rounded-full border border-[#d4af3735] bg-[#fff8d9] text-[28px] font-black leading-none text-black shadow-lg shadow-black/45">
                               +
                             </div>
                           )}
@@ -1804,7 +1804,7 @@ export default function Home() {
               ref={cartRef}
               className="lg:sticky lg:top-3 rounded-2xl border border-[#d4af3735] bg-gradient-to-b from-[#111111]/95 to-[#050505]/95 p-4 shadow-2xl shadow-black/70 backdrop-blur"
             >
-              <h2 className="mb-3 text-2xl font-black text-[#f4d56d] md:text-3xl">
+              <h2 className="mb-3 text-xl font-black text-[#f4d56d] md:text-2xl">
                 장바구니
               </h2>
 
@@ -1819,7 +1819,7 @@ export default function Home() {
                   key={item.cartId}
                   className="border-b border-zinc-900 py-2"
                 >
-                  <div className="text-lg font-black text-[#fff8d9] md:text-xl">
+                  <div className="text-base font-black text-[#fff8d9] md:text-lg">
                     {item.name}
                   </div>
 
@@ -1836,7 +1836,7 @@ export default function Home() {
                   )}
 
                   <div className="mt-2 flex items-center justify-between gap-2">
-                    <div className="text-lg font-black text-[#f4d56d] md:text-xl">
+                    <div className="text-base font-black text-[#f4d56d] md:text-lg">
                       {item.total.toLocaleString()}원
                     </div>
 
@@ -1884,7 +1884,7 @@ export default function Home() {
                       배달비 ({deliveryDistance.toFixed(1)}km)
                     </span>
 
-                    <span className="text-lg font-black text-[#f4d56d] md:text-xl">
+                    <span className="text-base font-black text-[#f4d56d] md:text-lg">
                       {deliveryFee.toLocaleString()}원
                     </span>
                   </div>
@@ -1892,7 +1892,7 @@ export default function Home() {
 
                 <div className="mt-2 text-sm text-zinc-500">총금액</div>
 
-                <div className="text-2xl font-black text-[#f4d56d] md:text-3xl">
+                <div className="text-xl font-black text-[#f4d56d] md:text-2xl">
                   {total.toLocaleString()}원
                 </div>
 
@@ -1960,7 +1960,7 @@ export default function Home() {
                         address: next.address,
                       });
                     }}
-                    className="w-full rounded-2xl border border-[#d4af3724] bg-[#050505] p-4 text-lg text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
+                    className="w-full rounded-2xl border border-[#d4af3724] bg-[#050505] p-3.5 text-base text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
                   />
 
                   <input
@@ -1983,7 +1983,7 @@ export default function Home() {
                         autoFillAddress(value);
                       }
                     }}
-                    className="w-full rounded-2xl border border-[#d4af3724] bg-[#050505] p-4 text-lg text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
+                    className="w-full rounded-2xl border border-[#d4af3724] bg-[#050505] p-3.5 text-base text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
                   />
 
                   {form.phone && !isValidKoreanPhone(form.phone) && (
@@ -1994,7 +1994,7 @@ export default function Home() {
 
                   <button
                     onClick={checkStamp}
-                    className="w-full rounded-2xl border border-yellow-500/30 bg-[#050505] p-4 text-lg font-black text-[#f4d56d] shadow-lg shadow-[#d4af37]/10"
+                    className="w-full rounded-2xl border border-yellow-500/30 bg-[#050505] p-3.5 text-base font-black text-[#f4d56d] shadow-lg shadow-[#d4af37]/10"
                   >
                     스탬프 조회
                   </button>
@@ -2079,14 +2079,14 @@ export default function Home() {
                       saveCustomerInfo({ ...next, detailAddress: "" });
                       calculateDeliveryFee(value);
                     }}
-                    className="w-full rounded-2xl border border-[#d4af3724] bg-[#050505] p-4 text-lg text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
+                    className="w-full rounded-2xl border border-[#d4af3724] bg-[#050505] p-3.5 text-base text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
                   />
 
                   <input
                     placeholder="상세주소 예: 101동 1001호 / 현관 비번"
                     value={detailAddress}
                     onChange={(e) => updateDetailAddress(e.target.value)}
-                    className="w-full rounded-2xl border border-[#d4af3724] bg-[#050505] p-4 text-lg text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
+                    className="w-full rounded-2xl border border-[#d4af3724] bg-[#050505] p-3.5 text-base text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
                   />
 
                   <button
@@ -2109,7 +2109,7 @@ export default function Home() {
 
                     <div className="mt-2 flex justify-between">
                       <span className="text-zinc-400">배달비</span>
-                      <span className="text-lg font-black text-[#f4d56d] md:text-xl">
+                      <span className="text-base font-black text-[#f4d56d] md:text-lg">
                         {deliveryFee.toLocaleString()}원
                       </span>
                     </div>
@@ -2247,7 +2247,7 @@ export default function Home() {
                     placeholder="추가 요청사항 예: 덜 맵게, 단무지 많이 주세요"
                     value={form.memo}
                     onChange={(e) => setForm({ ...form, memo: e.target.value })}
-                    className="w-full rounded-2xl border border-[#d4af3724] bg-[#050505] p-4 text-lg text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
+                    className="w-full rounded-2xl border border-[#d4af3724] bg-[#050505] p-3.5 text-base text-[#fff8d9] outline-none placeholder:text-zinc-600 focus:border-yellow-500"
                   />
 
                   <button
@@ -2284,7 +2284,7 @@ export default function Home() {
             <button
               type="button"
               onClick={scrollToCart}
-              className="flex w-full items-center justify-between rounded-[22px] bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] px-5 py-4 text-black shadow-lg shadow-[#d4af37]/30 active:scale-[0.99]"
+              className="flex w-full items-center justify-between rounded-[22px] bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] px-4 py-3.5 text-black shadow-lg shadow-[#d4af37]/30 active:scale-[0.99]"
             >
               <div className="text-left">
                 <div className="text-sm font-black opacity-80">
@@ -2295,7 +2295,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-[#050505] px-4 py-3 text-lg font-black text-[#f4d56d]">
+              <div className="rounded-2xl bg-[#050505] px-3.5 py-2.5 text-base font-black text-[#f4d56d]">
                 주문하기
               </div>
             </button>
@@ -2391,7 +2391,7 @@ export default function Home() {
                   <div className="text-sm font-black uppercase tracking-[0.18em] text-[#d4af37]">
                     HWANGJE CART
                   </div>
-                  <div className="text-2xl font-black tracking-[-0.05em] text-[#fff2b8]">
+                  <div className="text-xl font-black tracking-[-0.04em] text-[#fff2b8]">
                     장바구니
                   </div>
                 </div>
@@ -2418,7 +2418,7 @@ export default function Home() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="truncate text-lg font-black text-[#fff8d9]">
+                        <div className="truncate text-base font-black text-[#fff8d9]">
                           {item.name}
                         </div>
                         {item.options.length > 0 && (
@@ -2479,7 +2479,7 @@ export default function Home() {
                     <span>-{finalStampDiscount.toLocaleString()}원</span>
                   </div>
                 )}
-                <div className="mt-3 flex justify-between border-t border-zinc-800 pt-3 text-xl font-black text-[#f4d56d]">
+                <div className="mt-3 flex justify-between border-t border-zinc-800 pt-3 text-lg font-black text-[#f4d56d]">
                   <span>결제금액</span>
                   <span>{finalTotal.toLocaleString()}원</span>
                 </div>
@@ -2540,7 +2540,7 @@ export default function Home() {
                     <div className="truncate text-sm font-black uppercase tracking-[0.22em] text-[#d4af37]">
                       HWANGJE ORDER
                     </div>
-                    <div className="truncate text-lg font-black text-[#fff8d9]">
+                    <div className="truncate text-base font-black text-[#fff8d9]">
                       메뉴 상세
                     </div>
                   </div>
@@ -2566,12 +2566,12 @@ export default function Home() {
                         황제떡볶이 대표 메뉴
                       </div>
 
-                      <h2 className="text-[26px] font-black leading-tight tracking-[-0.06em] text-[#fff6cf] md:text-3xl">
+                      <h2 className="text-[22px] font-black leading-tight tracking-[-0.045em] text-[#fff6cf] md:text-2xl">
                         {selectedMenu.name}
                       </h2>
 
                       {selectedMenu.description && (
-                        <p className="mt-2 text-base font-medium leading-relaxed text-zinc-300 md:text-lg">
+                        <p className="mt-2 text-sm font-medium leading-relaxed text-zinc-300 md:text-base">
                           {selectedMenu.description}
                         </p>
                       )}
@@ -2582,7 +2582,7 @@ export default function Home() {
                           <div className="text-sm font-bold text-zinc-500">
                             기본가격
                           </div>
-                          <div className="text-2xl font-black text-[#f4d56d]">
+                          <div className="text-xl font-black text-[#f4d56d]">
                             {selectedMenu.price.toLocaleString()}원
                           </div>
                         </div>
@@ -2624,12 +2624,12 @@ export default function Home() {
                   {getGroupsByMenuId(selectedMenu.id).map((group) => (
                     <section
                       key={group.id}
-                      className="overflow-hidden rounded-[24px] border border-[#d4af372c] bg-gradient-to-b from-[#111111] to-[#070707] shadow-[0_0_24px_rgba(212,175,55,.08)]"
+                      className="overflow-hidden rounded-[22px] border border-[#d4af372c] bg-gradient-to-b from-[#111111] to-[#070707] shadow-[0_0_24px_rgba(212,175,55,.08)]"
                     >
                       <div className="border-b border-[#d4af371d] bg-[#0c0c0c] px-4 py-3">
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <h3 className="text-xl font-black tracking-[-0.04em] /* 황제수정: 카테고리 제목 확대 */ text-[#fff8d9]">
+                            <h3 className="text-lg font-black tracking-[-0.035em] /* 황제수정: 옵션그룹 제목 축소 및 고급형 간격 정돈 */ text-[#fff8d9]">
                               {group.name}
                             </h3>
                             <p className="mt-0.5 text-sm font-bold text-zinc-500">
@@ -2664,7 +2664,7 @@ export default function Home() {
                               type="button"
                               onClick={() => toggleOption(group, option)}
                               disabled={option.is_soldout}
-                              className={`flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition active:scale-[0.99] ${
+                              className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition active:scale-[0.99] ${
                                 option.is_soldout
                                   ? "bg-zinc-900/60 text-zinc-600"
                                   : checked
@@ -2684,14 +2684,14 @@ export default function Home() {
                                 </span>
 
                                 <div className="min-w-0">
-                                  <div className="truncate text-lg font-black text-[#fff8d9]">
+                                  <div className="truncate text-base font-black text-[#fff8d9]">
                                     {option.name}
                                     {option.is_soldout && " (품절)"}
                                   </div>
                                 </div>
                               </div>
 
-                              <div className="shrink-0 text-lg font-black text-[#f4d56d]">
+                              <div className="shrink-0 text-base font-black text-[#f4d56d]">
                                 {option.price > 0
                                   ? `+${option.price.toLocaleString()}원`
                                   : "무료"}
@@ -2744,7 +2744,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={addCartWithOptions}
-                  className="w-full rounded-3xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] p-5 text-xl font-black text-black shadow-[0_0_30px_rgba(212,175,55,.28)] active:scale-[0.99]"
+                  className="w-full rounded-3xl bg-gradient-to-r from-[#fff1a8] via-[#d4af37] to-[#8a6a14] p-4 text-lg font-black text-black shadow-[0_0_30px_rgba(212,175,55,.28)] active:scale-[0.99]"
                 >
                   {(selectedMenuTotal * optionModalQty).toLocaleString()}원 담기
                 </button>
